@@ -5,34 +5,32 @@ import java.io.File
 /**
  * Detects and reads vendor configuration files from the device.
  * Requires root access for actual file reading on production devices.
+ * All paths are obfuscated in logs for security.
  */
 object ConfigFileDetector {
 
-    // Vendor partition paths for X695C (no trailing slash to avoid double slash)
-    private const val VENDOR_PATH = "/vendor/etc"
-    private const val DATA_VENDOR_PATH = "/data/vendor"
-
-    // Config file paths
-    val CONFIG_FILES = mapOf(
-        ConfigType.GAME_WHITELIST to listOf(
-            "$VENDOR_PATH/power_app_cfg.xml",
-            "$VENDOR_PATH/powerhint.xml",
-            "$DATA_VENDOR_PATH/power/power_app_cfg.xml"
-        ),
-        ConfigType.PERFORMANCE_SCENARIOS to listOf(
-            "$VENDOR_PATH/powerscntbl.xml",
-            "$VENDOR_PATH/powerhint_scene.xml"
-        ),
-        ConfigType.MEMORY_MANAGEMENT to listOf(
-            "$VENDOR_PATH/policy_config_6g_ram.json",
-            "$VENDOR_PATH/policy_config.json",
-            "$DATA_VENDOR_PATH/lmkd/policy_config.json"
-        ),
-        ConfigType.GPU_DVFS to listOf(
-            "$VENDOR_PATH/gpu_dvfs_setting.xml",
-            "$VENDOR_PATH/hwservicectrl.json",
-            "/sys/module/mali/parameters/dvfs_margin"
-        )
+    // Config file paths (private - never exposed in logs)
+    private val gameConfigPaths = listOf(
+        "/vendor/etc/power_app_cfg.xml",
+        "/vendor/etc/powerhint.xml",
+        "/data/vendor/power/power_app_cfg.xml"
+    )
+    
+    private val scenarioConfigPaths = listOf(
+        "/vendor/etc/powerscntbl.xml",
+        "/vendor/etc/powerhint_scene.xml"
+    )
+    
+    private val memoryConfigPaths = listOf(
+        "/vendor/etc/policy_config_6g_ram.json",
+        "/vendor/etc/policy_config.json",
+        "/data/vendor/lmkd/policy_config.json"
+    )
+    
+    private val gpuConfigPaths = listOf(
+        "/vendor/etc/gpu_dvfs_setting.xml",
+        "/vendor/etc/hwservicectrl.json",
+        "/sys/module/mali/parameters/dvfs_margin"
     )
 
     enum class ConfigType {
@@ -45,9 +43,13 @@ object ConfigFileDetector {
     data class ConfigStatus(
         val type: ConfigType,
         val available: Boolean,
-        val detectedPath: String?,
         val readable: Boolean
-    )
+    ) {
+        // Never expose the actual path in toString or any public output
+        override fun toString(): String {
+            return "ConfigStatus(type=$type, available=$available, readable=$readable)"
+        }
+    }
 
     private val detectedConfigs = mutableMapOf<ConfigType, ConfigStatus>()
 
@@ -56,41 +58,44 @@ object ConfigFileDetector {
      * Should be called during app initialization.
      */
     fun detectConfigs(): Map<ConfigType, ConfigStatus> {
-        CONFIG_FILES.forEach { (type, paths) ->
-            var detected = false
-            var detectedPath: String? = null
-            var readable = false
+        detectConfig(ConfigType.GAME_WHITELIST, gameConfigPaths)
+        detectConfig(ConfigType.PERFORMANCE_SCENARIOS, scenarioConfigPaths)
+        detectConfig(ConfigType.MEMORY_MANAGEMENT, memoryConfigPaths)
+        detectConfig(ConfigType.GPU_DVFS, gpuConfigPaths)
+        
+        return detectedConfigs.toMap()
+    }
 
-            for (path in paths) {
-                val file = File(path)
-                if (file.exists()) {
-                    detected = true
-                    detectedPath = path
-                    readable = file.canRead()
+    private fun detectConfig(type: ConfigType, paths: List<String>) {
+        var detected = false
+        var readable = false
 
-                    // Log the detection
-                    ActivityLogger.logFileDetection(path, true)
+        for (path in paths) {
+            val file = File(path)
+            if (file.exists()) {
+                detected = true
+                readable = file.canRead()
+                
+                // Use obfuscated logging - never expose actual path
+                ActivityLogger.logFileDetection(path, true)
 
-                    if (readable) {
-                        break // Use first readable file
-                    }
-                } else {
-                    ActivityLogger.logFileDetection(path, false)
+                if (readable) {
+                    break
                 }
+            } else {
+                ActivityLogger.logFileDetection(path, false)
             }
-
-            val status = ConfigStatus(type, detected, detectedPath, readable)
-            detectedConfigs[type] = status
         }
 
-        return detectedConfigs.toMap()
+        val status = ConfigStatus(type, detected, readable)
+        detectedConfigs[type] = status
     }
 
     /**
      * Get the status of a specific config type.
      */
     fun getConfigStatus(type: ConfigType): ConfigStatus {
-        return detectedConfigs[type] ?: ConfigStatus(type, false, null, false)
+        return detectedConfigs[type] ?: ConfigStatus(type, false, false)
     }
 
     /**
@@ -109,33 +114,34 @@ object ConfigFileDetector {
     }
 
     /**
-     * Get all detected config paths.
-     */
-    fun getDetectedPaths(): Map<ConfigType, String?> {
-        return detectedConfigs.mapValues { it.value.detectedPath }
-    }
-
-    /**
      * Read the content of a config file if available and readable.
      * Returns null if file is not available or not readable.
      */
     fun readConfigFile(type: ConfigType): String? {
-        val status = detectedConfigs[type] ?: return null
-
-        if (!status.available || !status.readable || status.detectedPath == null) {
-            return null
+        val paths = when (type) {
+            ConfigType.GAME_WHITELIST -> gameConfigPaths
+            ConfigType.PERFORMANCE_SCENARIOS -> scenarioConfigPaths
+            ConfigType.MEMORY_MANAGEMENT -> memoryConfigPaths
+            ConfigType.GPU_DVFS -> gpuConfigPaths
         }
 
-        return try {
-            File(status.detectedPath).readText()
-        } catch (e: Exception) {
-            ActivityLogger.logError("ConfigFileDetector", "Failed to read ${status.detectedPath}: ${e.message}")
-            null
+        for (path in paths) {
+            val file = File(path)
+            if (file.exists() && file.canRead()) {
+                return try {
+                    file.readText()
+                } catch (e: Exception) {
+                    ActivityLogger.logError("ConfigFileDetector", "Failed to read config: ${e.message}")
+                    null
+                }
+            }
         }
+        return null
     }
 
     /**
      * Get a summary of all config file statuses.
+     * Does NOT expose actual file paths.
      */
     fun getStatusSummary(): String {
         val sb = StringBuilder()
@@ -145,7 +151,7 @@ object ConfigFileDetector {
             val statusText = when {
                 !status.available -> "NOT FOUND"
                 !status.readable -> "FOUND (No Read Permission)"
-                else -> "AVAILABLE: ${status.detectedPath}"
+                else -> "AVAILABLE"
             }
             sb.appendLine("${type.name}: $statusText")
         }

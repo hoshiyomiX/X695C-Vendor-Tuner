@@ -300,86 +300,28 @@ class TunerViewModel : ViewModel() {
         )
     }
 
-    fun exportConfiguration(): String {
-        val config = FullTuningConfig(
-            profile = _selectedProfile.value,
-            gameConfigs = _gameConfigs.value,
-            scenarioConfigs = _scenarioConfigs.value,
-            memoryConfig = _memoryConfig.value,
-            gpuConfig = _gpuConfig.value
-        )
-
-        ActivityLogger.logExport("Full Configuration")
-        return buildXmlConfiguration(config)
-    }
-
-    fun getLogs(): String {
-        return ActivityLogger.getFormattedLogs()
-    }
-
-    fun clearLogs() {
-        ActivityLogger.clearLogs()
-        ActivityLogger.log("App", "LOGS_CLEARED", "Activity log cleared by user")
-    }
-
-    private fun buildXmlConfiguration(config: FullTuningConfig): String {
-        val sb = StringBuilder()
-        sb.appendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-        sb.appendLine("<!-- X695C Vendor Tuning Configuration -->")
-        sb.appendLine("<!-- Profile: ${config.profile.displayName} -->")
-        sb.appendLine()
-
-        // Game configurations
-        sb.appendLine("<WHITELIST>")
-        config.gameConfigs.forEach { (packageName, gameConfig) ->
-            sb.appendLine("    <Package name=\"$packageName\">")
-            sb.appendLine("        <Activity name=\"Common\">")
-
-            if (gameConfig.thermalPolicy != ThermalPolicy.DEFAULT) {
-                sb.appendLine("            <data cmd=\"PERF_RES_THERMAL_POLICY\" param1=\"${gameConfig.thermalPolicy.value}\"></data>")
-            }
-            if (gameConfig.gpuMarginMode != GpuMarginMode.BALANCED) {
-                sb.appendLine("            <data cmd=\"PERF_RES_GPU_GED_MARGIN_MODE\" param1=\"${gameConfig.gpuMarginMode.value}\"></data>")
-            }
-            if (gameConfig.uclampMin != UclampMin.NONE) {
-                sb.appendLine("            <data cmd=\"PERF_RES_SCHED_UCLAMP_MIN_TA\" param1=\"${gameConfig.uclampMin.value}\"></data>")
-            }
-            if (gameConfig.schedBoost != SchedBoost.DISABLED) {
-                sb.appendLine("            <data cmd=\"PERF_RES_SCHED_BOOST\" param1=\"${gameConfig.schedBoost.value}\"></data>")
-            }
-            if (gameConfig.fpsMarginMode != FpsMarginMode.DISABLED) {
-                sb.appendLine("            <data cmd=\"PERF_RES_FPS_FPSGO_MARGIN_MODE\" param1=\"${gameConfig.fpsMarginMode.value}\"></data>")
-            }
-            if (gameConfig.fpsAdjustLoading) {
-                sb.appendLine("            <data cmd=\"PERF_RES_FPS_FPSGO_ADJ_LOADING\" param1=\"1\"></data>")
-            }
-            if (gameConfig.fpsLoadingThreshold != FpsLoadingThreshold.STANDARD) {
-                sb.appendLine("            <data cmd=\"PERF_RES_FPS_FPSGO_LLF_TH\" param1=\"${gameConfig.fpsLoadingThreshold.value}\"></data>")
-            }
-            if (gameConfig.gpuBlockBoost != GpuBlockBoost.DISABLED) {
-                sb.appendLine("            <data cmd=\"PERF_RES_FPS_FPSGO_GPU_BLOCK_BOOST\" param1=\"${gameConfig.gpuBlockBoost.value}\"></data>")
-            }
-            if (gameConfig.networkBoost != NetworkBoost.DISABLED) {
-                sb.appendLine("            <data cmd=\"PERF_RES_NET_NETD_BOOST_UID\" param1=\"${gameConfig.networkBoost.value}\"></data>")
-            }
-            if (gameConfig.wifiLowLatency == WifiLowLatency.ENABLED) {
-                sb.appendLine("            <data cmd=\"PERF_RES_NET_WIFI_LOW_LATENCY\" param1=\"1\"></data>")
-            }
-            if (gameConfig.weakSignalOpt == WeakSignalOpt.ENABLED) {
-                sb.appendLine("            <data cmd=\"PERF_RES_NET_MD_WEAK_SIG_OPT\" param1=\"1\"></data>")
-            }
-
-            sb.appendLine("        </Activity>")
-            sb.appendLine("    </Package>")
+    /**
+     * Add a custom game by package name.
+     * Creates a default config for the new game.
+     */
+    fun addCustomGame(packageName: String) {
+        if (packageName.isBlank() || _gameConfigs.value.containsKey(packageName)) {
+            return
         }
-        sb.appendLine("</WHITELIST>")
 
-        return sb.toString()
+        val newConfig = GameTuningConfig(packageName = packageName)
+        _gameConfigs.update { configs ->
+            configs.toMutableMap().apply {
+                this[packageName] = newConfig
+            }
+        }
+        _selectedProfile.value = TuningProfile.CUSTOM
+        
+        ActivityLogger.log("GameTuning", "ADD_GAME", "Added custom game: $packageName")
     }
 }
 
 data class TunerUiState(
     val isLoading: Boolean = false,
-    val message: String? = null,
-    val exportResult: String? = null
+    val message: String? = null
 )

@@ -1,28 +1,15 @@
 package com.x695c.tuner
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.x695c.tuner.data.*
 import com.x695c.tuner.ui.screens.*
@@ -104,7 +91,6 @@ sealed class Screen {
     data class ScenarioDetail(val scenarioName: String) : Screen()
     object Memory : Screen()
     object Gpu : Screen()
-    object Logs : Screen()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -112,7 +98,6 @@ sealed class Screen {
 fun TunerApp(
     viewModel: TunerViewModel = viewModel()
 ) {
-    val context = LocalContext.current
     val selectedProfile by viewModel.selectedProfile.collectAsState()
     val gameConfigs by viewModel.gameConfigs.collectAsState()
     val scenarioConfigs by viewModel.scenarioConfigs.collectAsState()
@@ -125,33 +110,16 @@ fun TunerApp(
 
     // Helper functions
     fun navigateTo(screen: Screen) {
-        val from = screenStack.lastOrNull()?.let { it::class.simpleName } ?: "Unknown"
         screenStack = screenStack + screen
-        ActivityLogger.logNavigation(from, screen::class.simpleName ?: "Unknown")
     }
 
     fun navigateBack(): Boolean {
         return if (screenStack.size > 1) {
-            val current = screenStack.last()
-            val target = screenStack[screenStack.size - 2]
             screenStack = screenStack.dropLast(1)
-            ActivityLogger.logNavigation(
-                current::class.simpleName ?: "Unknown",
-                target::class.simpleName ?: "Unknown"
-            )
             true
         } else {
             false
         }
-    }
-
-    fun copyLogsToClipboard() {
-        val logs = viewModel.getLogs()
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Activity Logs", logs)
-        clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "Logs copied to clipboard (${ActivityLogger.getLogsCount()} entries)", Toast.LENGTH_SHORT).show()
-        ActivityLogger.log("MainDashboard", "COPY_LOGS", "Logs copied to clipboard")
     }
 
     // Back handler for gesture back - intercept and navigate within app
@@ -190,19 +158,17 @@ fun TunerApp(
                     scenarioConfigAvailable = scenarioConfigAvailable,
                     memoryConfigAvailable = memoryConfigAvailable,
                     gpuConfigAvailable = gpuConfigAvailable,
-                    onExport = { viewModel.exportConfiguration() },
                     onNavigateToGames = { navigateTo(Screen.Games) },
                     onNavigateToScenarios = { navigateTo(Screen.Scenarios) },
                     onNavigateToMemory = { navigateTo(Screen.Memory) },
-                    onNavigateToGpu = { navigateTo(Screen.Gpu) },
-                    onNavigateToLogs = { navigateTo(Screen.Logs) },
-                    onCopyLogs = { copyLogsToClipboard() }
+                    onNavigateToGpu = { navigateTo(Screen.Gpu) }
                 )
 
                 is Screen.Games -> GameListScreen(
                     gameConfigs = gameConfigs,
                     configAvailable = gameConfigAvailable,
                     onGameSelect = { navigateTo(Screen.GameDetail(it)) },
+                    onAddGame = { packageName -> viewModel.addCustomGame(packageName) },
                     onBack = { navigateBack() }
                 )
 
@@ -254,104 +220,6 @@ fun TunerApp(
                     onConfigChange = { viewModel.updateGpuConfig(it) },
                     onBack = { navigateBack() }
                 )
-
-                is Screen.Logs -> LogsScreen(
-                    logs = viewModel.getLogs(),
-                    onClearLogs = { viewModel.clearLogs() },
-                    onCopyLogs = { copyLogsToClipboard() },
-                    onBack = { navigateBack() }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LogsScreen(
-    logs: String,
-    onClearLogs: () -> Unit,
-    onCopyLogs: () -> Unit,
-    onBack: () -> Unit
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = {
-                Text(
-                    text = "Activity Logs",
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                titleContentColor = MaterialTheme.colorScheme.onSurface
-            )
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            // Action buttons - MD3 Expressive
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                FilledTonalButton(
-                    onClick = onCopyLogs,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Copy Logs")
-                }
-                OutlinedButton(
-                    onClick = onClearLogs
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Clear")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Log content
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = logs,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
             }
         }
     }

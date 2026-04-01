@@ -20,9 +20,13 @@ fun GameListScreen(
     gameConfigs: Map<String, GameTuningConfig>,
     configAvailable: Boolean = false,
     onGameSelect: (String) -> Unit,
+    onAddGame: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showAddGameDialog by remember { mutableStateOf(false) }
+    var newPackageName by remember { mutableStateOf("") }
+
     Column(modifier = modifier.fillMaxSize()) {
         // Top App Bar - MD3 Expressive
         TopAppBar(
@@ -35,6 +39,11 @@ fun GameListScreen(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+            },
+            actions = {
+                IconButton(onClick = { showAddGameDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Game")
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -85,7 +94,7 @@ fun GameListScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            items(gameConfigs.entries.toList()) { (packageName, config) ->
+            items(gameConfigs.entries.toList().sortedBy { it.key }) { (packageName, config) ->
                 val gameName = getGameName(packageName)
                 ElevatedCard(
                     onClick = { onGameSelect(packageName) },
@@ -154,6 +163,23 @@ fun GameListScreen(
 
             item {
                 Spacer(modifier = Modifier.height(8.dp))
+                
+                // Add Game Button
+                FilledTonalButton(
+                    onClick = { showAddGameDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Add Custom Game")
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
                 ElevatedCard(
                     colors = CardDefaults.elevatedCardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -170,7 +196,7 @@ fun GameListScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "These games have default tunings from the device. Modify as needed.",
+                            text = "Add custom games by package name. Get package name from app info or Play Store URL.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -178,6 +204,74 @@ fun GameListScreen(
                 }
             }
         }
+    }
+
+    // Add Game Dialog
+    if (showAddGameDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showAddGameDialog = false
+                newPackageName = ""
+            },
+            title = { 
+                Text(
+                    text = "Add Custom Game",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter the package name of the game you want to add:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = newPackageName,
+                        onValueChange = { newPackageName = it },
+                        label = { Text("Package Name") },
+                        placeholder = { Text("com.example.game") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Example: com.tencent.ig for PUBG Mobile",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                FilledTonalButton(
+                    onClick = {
+                        if (newPackageName.isNotBlank() && !gameConfigs.containsKey(newPackageName)) {
+                            onAddGame(newPackageName.trim())
+                        }
+                        showAddGameDialog = false
+                        newPackageName = ""
+                    },
+                    enabled = newPackageName.isNotBlank() && !gameConfigs.containsKey(newPackageName)
+                ) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showAddGameDialog = false
+                        newPackageName = ""
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -205,6 +299,8 @@ private fun getGameName(packageName: String): String {
         "com.tencent.mobileqq" -> "Mobile QQ"
         "com.ss.android.ugc.aweme" -> "TikTok"
         "com.sina.weibo" -> "Weibo"
+        "com.activision.callofduty.shooter" -> "Call of Duty Mobile"
+        "com.mobile.legends" -> "Mobile Legends"
         else -> packageName.substringAfterLast(".").replace("_", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
     }
 }

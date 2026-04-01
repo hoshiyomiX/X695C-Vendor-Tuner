@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,18 +26,12 @@ fun MainDashboardScreen(
     scenarioConfigAvailable: Boolean = false,
     memoryConfigAvailable: Boolean = false,
     gpuConfigAvailable: Boolean = false,
-    onExport: () -> String,
     onNavigateToGames: () -> Unit,
     onNavigateToScenarios: () -> Unit,
     onNavigateToMemory: () -> Unit,
     onNavigateToGpu: () -> Unit,
-    onNavigateToLogs: () -> Unit,
-    onCopyLogs: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showExportDialog by remember { mutableStateOf(false) }
-    var exportedConfig by remember { mutableStateOf("") }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -185,10 +178,12 @@ fun MainDashboardScreen(
             onClick = onNavigateToGpu
         )
 
-        // Activity Logs Card
+        // Info Card
         ElevatedCard(
-            onClick = onNavigateToLogs,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            )
         ) {
             Row(
                 modifier = Modifier
@@ -197,102 +192,18 @@ fun MainDashboardScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.History,
+                    imageVector = Icons.Default.Info,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Activity Logs",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${com.x695c.tuner.data.ActivityLogger.getLogsCount()} entries recorded",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Adjust settings to optimize performance for your usage. Changes require root access to apply.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
-
-        // Action Buttons - MD3 Expressive
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        FilledTonalButton(
-            onClick = {
-                exportedConfig = onExport()
-                showExportDialog = true
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.Download,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Export Configuration")
-        }
-
-        OutlinedButton(
-            onClick = onCopyLogs,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Copy Logs to Clipboard")
-        }
-
-        // Export Dialog
-        if (showExportDialog) {
-            AlertDialog(
-                onDismissRequest = { showExportDialog = false },
-                title = { 
-                    Text(
-                        text = "Exported Configuration",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                text = {
-                    Column {
-                        Text(
-                            text = "Copy this configuration to your vendor files:",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            shape = MaterialTheme.shapes.medium
-                        ) {
-                            Text(
-                                text = exportedConfig,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(12.dp),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                },
-                confirmButton = {
-                    FilledTonalButton(onClick = { showExportDialog = false }) {
-                        Text("Close")
-                    }
-                }
-            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))

@@ -14,34 +14,32 @@ import javax.xml.parsers.DocumentBuilderFactory
  */
 object ConfigFileParser {
 
-    // Config file paths
-    private const val GAME_CONFIG_PATH = "/vendor/etc/power_app_cfg.xml"
-    private const val SCENARIO_CONFIG_PATH = "/vendor/etc/powerscntbl.xml"
-    private const val MEMORY_CONFIG_PATH = "/vendor/etc/policy_config_6g_ram.json"
-    private const val GPU_CONFIG_PATH = "/vendor/etc/gpu_dvfs_setting.xml"
-
-    // Alternative paths
-    private val GAME_CONFIG_ALT_PATHS = listOf(
+    // Config file paths (private - never exposed in logs for security)
+    private val gameConfigPaths = listOf(
+        "/vendor/etc/power_app_cfg.xml",
         "/vendor/etc/powerhint.xml",
         "/data/vendor/power/power_app_cfg.xml"
     )
-    private val SCENARIO_CONFIG_ALT_PATHS = listOf(
+    private val scenarioConfigPaths = listOf(
+        "/vendor/etc/powerscntbl.xml",
         "/vendor/etc/powerhint_scene.xml"
     )
-    private val MEMORY_CONFIG_ALT_PATHS = listOf(
+    private val memoryConfigPaths = listOf(
+        "/vendor/etc/policy_config_6g_ram.json",
         "/vendor/etc/policy_config.json",
         "/data/vendor/lmkd/policy_config.json"
     )
-    private val GPU_CONFIG_ALT_PATHS = listOf(
+    private val gpuConfigPaths = listOf(
+        "/vendor/etc/gpu_dvfs_setting.xml",
         "/vendor/etc/hwservicectrl.json"
     )
 
     /**
-     * Parse game tuning configurations from power_app_cfg.xml
+     * Parse game tuning configurations from config files.
      * Returns a map of package names to their tuning configs.
      */
     fun parseGameConfigs(): Map<String, GameTuningConfig> {
-        val content = findReadableFile(GAME_CONFIG_PATH, GAME_CONFIG_ALT_PATHS)
+        val content = findReadableFile(gameConfigPaths)
         
         if (content == null) {
             ActivityLogger.log("ConfigParser", "GAME_CONFIG", "No readable game config file found")
@@ -72,11 +70,11 @@ object ConfigFileParser {
     }
 
     /**
-     * Parse performance scenario configurations from powerscntbl.xml
+     * Parse performance scenario configurations from config files.
      * Returns a map of scenario names to their configs.
      */
     fun parseScenarioConfigs(): Map<String, PerformanceScenarioConfig> {
-        val content = findReadableFile(SCENARIO_CONFIG_PATH, SCENARIO_CONFIG_ALT_PATHS)
+        val content = findReadableFile(scenarioConfigPaths)
         
         if (content == null) {
             ActivityLogger.log("ConfigParser", "SCENARIO_CONFIG", "No readable scenario config file found")
@@ -107,11 +105,11 @@ object ConfigFileParser {
     }
 
     /**
-     * Parse memory management configuration from policy_config_6g_ram.json
+     * Parse memory management configuration from config files.
      * Returns the memory management config.
      */
     fun parseMemoryConfig(): MemoryManagementConfig? {
-        val content = findReadableFile(MEMORY_CONFIG_PATH, MEMORY_CONFIG_ALT_PATHS)
+        val content = findReadableFile(memoryConfigPaths)
         
         if (content == null) {
             ActivityLogger.log("ConfigParser", "MEMORY_CONFIG", "No readable memory config file found")
@@ -130,11 +128,11 @@ object ConfigFileParser {
     }
 
     /**
-     * Parse GPU DVFS configuration from gpu_dvfs_setting.xml
+     * Parse GPU DVFS configuration from config files.
      * Returns the GPU DVFS config.
      */
     fun parseGpuConfig(): GpuDvfsConfig? {
-        val content = findReadableFile(GPU_CONFIG_PATH, GPU_CONFIG_ALT_PATHS)
+        val content = findReadableFile(gpuConfigPaths)
         
         if (content == null) {
             ActivityLogger.log("ConfigParser", "GPU_CONFIG", "No readable GPU config file found")
@@ -154,21 +152,13 @@ object ConfigFileParser {
 
     // ==================== PRIVATE HELPER METHODS ====================
 
-    private fun findReadableFile(primaryPath: String, altPaths: List<String>): String? {
-        // Try primary path first
-        val primaryFile = File(primaryPath)
-        if (primaryFile.exists() && primaryFile.canRead()) {
-            return primaryFile.readText()
-        }
-        
-        // Try alternative paths
-        for (altPath in altPaths) {
-            val altFile = File(altPath)
-            if (altFile.exists() && altFile.canRead()) {
-                return altFile.readText()
+    private fun findReadableFile(paths: List<String>): String? {
+        for (path in paths) {
+            val file = File(path)
+            if (file.exists() && file.canRead()) {
+                return file.readText()
             }
         }
-        
         return null
     }
 
