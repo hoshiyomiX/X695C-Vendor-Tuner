@@ -69,10 +69,10 @@ object ConfigFileParser {
             val configs = mutableMapOf<String, PerformanceScenarioConfig>()
             val doc = parseXmlDocument(content)
             
-            val scenarios = doc.getElementsByTagName("Scenario")
+            val scenarios = doc.getElementsByTagName("scenario")
             for (i in 0 until scenarios.length) {
                 val scenarioElement = scenarios.item(i) as Element
-                val scenarioName = scenarioElement.getAttribute("name")
+                val scenarioName = scenarioElement.getAttribute("powerhint")
                 
                 if (scenarioName.isNotEmpty()) {
                     val config = parseScenarioConfig(scenarioName, scenarioElement)
@@ -201,18 +201,17 @@ object ConfigFileParser {
             val param1 = dataElement.getAttribute("param1").toLongOrNull() ?: 0L
             val param1Int = param1.toInt()
             
+            // Cmd names must match actual vendor format (PERF_RES_ prefix)
             config = when (cmd) {
-                "CPU_FREQ_MIN_CLUSTER0" -> config.copy(cpuFreqMinCluster0 = param1)
-                "CPU_FREQ_MIN_CLUSTER1" -> config.copy(cpuFreqMinCluster1 = param1)
-                "DRAM_OPP" -> config.copy(dramOpp = DramOpp.fromValue(param1Int))
-                "SCHED_UCLAMP_MIN" -> config.copy(uclampMin = UclampMin.fromValue(param1Int))
-                "SCHED_BOOST" -> config.copy(schedBoost = SchedBoost.fromValue(param1Int))
-                "TOUCH_BOOST_OPP" -> config.copy(touchBoostOpp = TouchBoostOpp.fromValue(param1Int))
-                "TOUCH_BOOST_DURATION" -> config.copy(touchBoostDuration = param1)
-                "BHR_OPP" -> config.copy(bhrOpp = param1Int)
-                "HOLD_TIME" -> config.copy(holdTime = param1)
-                "EXT_HINT" -> config.copy(extHint = param1Int)
-                "EXT_HINT_HOLD_TIME" -> config.copy(extHintHoldTime = param1)
+                "PERF_RES_CPUFREQ_MIN_CLUSTER_0" -> config.copy(cpuFreqMinCluster0 = param1)
+                "PERF_RES_CPUFREQ_MIN_CLUSTER_1" -> config.copy(cpuFreqMinCluster1 = param1)
+                "PERF_RES_DRAM_OPP_MIN" -> config.copy(dramOpp = DramOpp.fromValue(param1Int))
+                "PERF_RES_SCHED_UCLAMP_MIN_TA" -> config.copy(uclampMin = UclampMin.fromValue(param1Int))
+                "PERF_RES_SCHED_BOOST" -> config.copy(schedBoost = SchedBoost.fromValue(param1Int))
+                "PERF_RES_FPS_FBT_BHR_OPP" -> config.copy(bhrOpp = param1Int)
+                "PERF_RES_POWER_HINT_HOLD_TIME" -> config.copy(holdTime = param1)
+                "PERF_RES_POWER_HINT_EXT_HINT" -> config.copy(extHint = param1Int)
+                "PERF_RES_POWER_HINT_EXT_HINT_HOLD_TIME" -> config.copy(extHintHoldTime = param1)
                 else -> config
             }
         }
@@ -228,9 +227,9 @@ object ConfigFileParser {
         var notificationCount = 4
         var cachedProcCount = 16
 
-        // Parse thresholds
-        if (json.has("thresholds")) {
-            val thresholdsJson = json.getJSONObject("thresholds")
+        // Parse thresholds (vendor key: "total_mem")
+        if (json.has("total_mem")) {
+            val thresholdsJson = json.getJSONObject("total_mem")
             thresholds = MemoryThresholdConfig(
                 adjNative = thresholdsJson.optInt("adj_native", 1024),
                 adjSystem = thresholdsJson.optInt("adj_system", 1024),
@@ -251,21 +250,22 @@ object ConfigFileParser {
             )
         }
 
-        // Parse process limits
-        if (json.has("process_limits")) {
-            val limitsJson = json.getJSONObject("process_limits")
+        // Parse process limits (vendor key: "proc_mem")
+        // Note: vendor uses abbreviated keys: "3rd", "sys", "sys_bg"
+        if (json.has("proc_mem")) {
+            val limitsJson = json.getJSONObject("proc_mem")
             processLimits = ProcessMemoryConfig(
-                thirdParty = limitsJson.optInt("third_party", 100),
+                thirdParty = limitsJson.optInt("3rd", 100),
                 gms = limitsJson.optInt("gms", 100),
-                system = limitsJson.optInt("system", 100),
-                systemBg = limitsJson.optInt("system_bg", 100),
+                system = limitsJson.optInt("sys", 100),
+                systemBg = limitsJson.optInt("sys_bg", 100),
                 game = limitsJson.optInt("game", 300)
             )
         }
 
-        // Parse features
-        if (json.has("features")) {
-            val featuresJson = json.getJSONObject("features")
+        // Parse features (vendor key: "feature")
+        if (json.has("feature")) {
+            val featuresJson = json.getJSONObject("feature")
             features = MemoryFeatureConfig(
                 appStartLimit = featuresJson.optBoolean("app_start_limit", true),
                 oomAdjClean = featuresJson.optBoolean("oom_adj_clean", true),
@@ -285,10 +285,13 @@ object ConfigFileParser {
             )
         }
 
-        // Parse counts
-        recentTaskCount = json.optInt("recent_task_count", 6)
-        notificationCount = json.optInt("notification_count", 4)
-        cachedProcCount = json.optInt("cached_proc_count", 16)
+        // Parse counts (vendor nests them under "number")
+        if (json.has("number")) {
+            val numberJson = json.getJSONObject("number")
+            recentTaskCount = numberJson.optInt("recent_task", 6)
+            notificationCount = numberJson.optInt("notification", 4)
+            cachedProcCount = numberJson.optInt("cached_proc", 16)
+        }
 
         return MemoryManagementConfig(
             thresholds = thresholds,

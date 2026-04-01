@@ -1,5 +1,6 @@
 package com.x695c.tuner.data
 
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.DataOutputStream
@@ -246,11 +247,11 @@ object ConfigWriter {
     private fun buildGameConfigXml(configs: Map<String, GameTuningConfig>): String {
         val sb = StringBuilder()
         sb.appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
-        sb.appendLine("<PowerAppConfig>")
+        sb.appendLine("<WHITELIST>")
 
         configs.forEach { (packageName, config) ->
             sb.appendLine("  <Package name=\"$packageName\">")
-            sb.appendLine("    <Activity name=\"*\">")
+            sb.appendLine("    <Activity name=\"Common\">")
 
             // Thermal policy
             sb.appendLine("      <data cmd=\"PERF_RES_THERMAL_POLICY\" param1=\"${config.thermalPolicy.value}\"/>")
@@ -310,80 +311,72 @@ object ConfigWriter {
             sb.appendLine("  </Package>")
         }
 
-        sb.appendLine("</PowerAppConfig>")
+        sb.appendLine("</WHITELIST>")
         return sb.toString()
     }
 
     private fun buildScenarioConfigXml(configs: Map<String, PerformanceScenarioConfig>): String {
         val sb = StringBuilder()
         sb.appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
-        sb.appendLine("<PowerScenarioTable>")
+        sb.appendLine("<SCNTABLE>")
 
         configs.forEach { (_, config) ->
-            sb.appendLine("  <Scenario name=\"${config.scenarioName}\">")
+            sb.appendLine("  <scenario powerhint=\"${config.scenarioName}\">")
 
             // CPU frequency min cluster 0
             if (config.cpuFreqMinCluster0 > 0) {
-                sb.appendLine("    <data cmd=\"CPU_FREQ_MIN_CLUSTER0\" param1=\"${config.cpuFreqMinCluster0}\"/>")
+                sb.appendLine("    <data cmd=\"PERF_RES_CPUFREQ_MIN_CLUSTER_0\" param1=\"${config.cpuFreqMinCluster0}\"></data>")
             }
 
             // CPU frequency min cluster 1
             if (config.cpuFreqMinCluster1 > 0) {
-                sb.appendLine("    <data cmd=\"CPU_FREQ_MIN_CLUSTER1\" param1=\"${config.cpuFreqMinCluster1}\"/>")
+                sb.appendLine("    <data cmd=\"PERF_RES_CPUFREQ_MIN_CLUSTER_1\" param1=\"${config.cpuFreqMinCluster1}\"></data>")
             }
 
             // DRAM OPP
-            sb.appendLine("    <data cmd=\"DRAM_OPP\" param1=\"${config.dramOpp.value}\"/>")
+            sb.appendLine("    <data cmd=\"PERF_RES_DRAM_OPP_MIN\" param1=\"${config.dramOpp.value}\"></data>")
 
             // Uclamp min
             if (config.uclampMin != UclampMin.NONE) {
-                sb.appendLine("    <data cmd=\"SCHED_UCLAMP_MIN\" param1=\"${config.uclampMin.value}\"/>")
+                sb.appendLine("    <data cmd=\"PERF_RES_SCHED_UCLAMP_MIN_TA\" param1=\"${config.uclampMin.value}\"></data>")
             }
 
             // Sched boost
             if (config.schedBoost != SchedBoost.DISABLED) {
-                sb.appendLine("    <data cmd=\"SCHED_BOOST\" param1=\"${config.schedBoost.value}\"/>")
-            }
-
-            // Touch boost OPP
-            sb.appendLine("    <data cmd=\"TOUCH_BOOST_OPP\" param1=\"${config.touchBoostOpp.value}\"/>")
-
-            // Touch boost duration
-            if (config.touchBoostDuration > 0) {
-                sb.appendLine("    <data cmd=\"TOUCH_BOOST_DURATION\" param1=\"${config.touchBoostDuration}\"/>")
+                sb.appendLine("    <data cmd=\"PERF_RES_SCHED_BOOST\" param1=\"${config.schedBoost.value}\"></data>")
             }
 
             // BHR OPP
             if (config.bhrOpp > 0) {
-                sb.appendLine("    <data cmd=\"BHR_OPP\" param1=\"${config.bhrOpp}\"/>")
+                sb.appendLine("    <data cmd=\"PERF_RES_FPS_FBT_BHR_OPP\" param1=\"${config.bhrOpp}\"></data>")
             }
 
             // Hold time
             if (config.holdTime > 0) {
-                sb.appendLine("    <data cmd=\"HOLD_TIME\" param1=\"${config.holdTime}\"/>")
+                sb.appendLine("    <data cmd=\"PERF_RES_POWER_HINT_HOLD_TIME\" param1=\"${config.holdTime}\"></data>")
             }
 
             // Ext hint
             if (config.extHint > 0) {
-                sb.appendLine("    <data cmd=\"EXT_HINT\" param1=\"${config.extHint}\"/>")
+                sb.appendLine("    <data cmd=\"PERF_RES_POWER_HINT_EXT_HINT\" param1=\"${config.extHint}\"></data>")
             }
 
             // Ext hint hold time
             if (config.extHintHoldTime > 0) {
-                sb.appendLine("    <data cmd=\"EXT_HINT_HOLD_TIME\" param1=\"${config.extHintHoldTime}\"/>")
+                sb.appendLine("    <data cmd=\"PERF_RES_POWER_HINT_EXT_HINT_HOLD_TIME\" param1=\"${config.extHintHoldTime}\"></data>")
             }
 
-            sb.appendLine("  </Scenario>")
+            sb.appendLine("  </scenario>")
         }
 
-        sb.appendLine("</PowerScenarioTable>")
+        sb.appendLine("</SCNTABLE>")
         return sb.toString()
     }
 
     private fun buildMemoryConfigJson(config: MemoryManagementConfig): String {
         val json = JSONObject()
 
-        // Thresholds
+        // Thresholds (vendor key: "total_mem")
         val thresholds = JSONObject().apply {
             put("adj_native", config.thresholds.adjNative)
             put("adj_system", config.thresholds.adjSystem)
@@ -402,19 +395,19 @@ object ConfigWriter {
             put("swapfree_max_percent", config.thresholds.swapfreeMaxPercent)
             put("free_cached", config.thresholds.freeCached)
         }
-        json.put("thresholds", thresholds)
+        json.put("total_mem", thresholds)
 
-        // Process limits
+        // Process limits (vendor key: "proc_mem")
         val processLimits = JSONObject().apply {
-            put("third_party", config.processLimits.thirdParty)
+            put("3rd", config.processLimits.thirdParty)
             put("gms", config.processLimits.gms)
-            put("system", config.processLimits.system)
-            put("system_bg", config.processLimits.systemBg)
+            put("sys", config.processLimits.system)
+            put("sys_bg", config.processLimits.systemBg)
             put("game", config.processLimits.game)
         }
-        json.put("process_limits", processLimits)
+        json.put("proc_mem", processLimits)
 
-        // Features
+        // Features (vendor key: "feature")
         val features = JSONObject().apply {
             put("app_start_limit", config.features.appStartLimit)
             put("oom_adj_clean", config.features.oomAdjClean)
@@ -432,12 +425,15 @@ object ConfigWriter {
             put("allow_clean_gms", config.features.allowCleanGms)
             put("allow_clean_3rd", config.features.allowClean3rd)
         }
-        json.put("features", features)
+        json.put("feature", features)
 
-        // Counts
-        json.put("recent_task_count", config.recentTaskCount)
-        json.put("notification_count", config.notificationCount)
-        json.put("cached_proc_count", config.cachedProcCount)
+        // Counts (vendor nests them under "number")
+        val number = JSONObject().apply {
+            put("recent_task", config.recentTaskCount)
+            put("notification", config.notificationCount)
+            put("cached_proc", config.cachedProcCount)
+        }
+        json.put("number", number)
 
         return json.toString(2)
     }
