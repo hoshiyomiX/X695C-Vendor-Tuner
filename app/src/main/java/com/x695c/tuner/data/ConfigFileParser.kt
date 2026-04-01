@@ -3,36 +3,20 @@ package com.x695c.tuner.data
 import org.json.JSONObject
 import org.w3c.dom.Document
 import org.w3c.dom.Element
-import org.w3c.dom.NodeList
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * Parses XML and JSON config files from the vendor partition.
  * Supports parsing of game tuning configs, performance scenarios,
- * memory management configs, and GPU DVFS settings.
+ * and memory management configs.
  */
 object ConfigFileParser {
 
     // Config file paths (private - never exposed in logs for security)
-    private val gameConfigPaths = listOf(
-        "/vendor/etc/power_app_cfg.xml",
-        "/vendor/etc/powerhint.xml",
-        "/data/vendor/power/power_app_cfg.xml"
-    )
-    private val scenarioConfigPaths = listOf(
-        "/vendor/etc/powerscntbl.xml",
-        "/vendor/etc/powerhint_scene.xml"
-    )
-    private val memoryConfigPaths = listOf(
-        "/vendor/etc/policy_config_6g_ram.json",
-        "/vendor/etc/policy_config.json",
-        "/data/vendor/lmkd/policy_config.json"
-    )
-    private val gpuConfigPaths = listOf(
-        "/vendor/etc/gpu_dvfs_setting.xml",
-        "/vendor/etc/hwservicectrl.json"
-    )
+    private val gameConfigPaths = listOf("/vendor/etc/power_app_cfg.xml")
+    private val scenarioConfigPaths = listOf("/vendor/etc/powerscntbl.xml")
+    private val memoryConfigPaths = listOf("/vendor/etc/performance/policy_config_6g_ram.json")
 
     /**
      * Parse game tuning configurations from config files.
@@ -123,29 +107,6 @@ object ConfigFileParser {
             config
         } catch (e: Exception) {
             ActivityLogger.logError("ConfigParser", "Failed to parse memory config: ${e.message}")
-            null
-        }
-    }
-
-    /**
-     * Parse GPU DVFS configuration from config files.
-     * Returns the GPU DVFS config.
-     */
-    fun parseGpuConfig(): GpuDvfsConfig? {
-        val content = findReadableFile(gpuConfigPaths)
-        
-        if (content == null) {
-            ActivityLogger.log("ConfigParser", "GPU_CONFIG", "No readable GPU config file found")
-            return null
-        }
-
-        return try {
-            val doc = parseXmlDocument(content)
-            val config = parseGpuXmlConfig(doc)
-            ActivityLogger.log("ConfigParser", "GPU_CONFIG", "Successfully parsed GPU configuration")
-            config
-        } catch (e: Exception) {
-            ActivityLogger.logError("ConfigParser", "Failed to parse GPU config: ${e.message}")
             null
         }
     }
@@ -336,52 +297,6 @@ object ConfigFileParser {
             recentTaskCount = recentTaskCount,
             notificationCount = notificationCount,
             cachedProcCount = cachedProcCount
-        )
-    }
-
-    private fun parseGpuXmlConfig(doc: Document): GpuDvfsConfig {
-        var marginMode = GpuMarginMode.BALANCED
-        var timerBaseDvfsMargin = 10
-        var loadingBaseDvfsStep = 4
-        var cwaitg = 0
-
-        // Try to find GPU settings in various element structures
-        val dvfsSettings = doc.getElementsByTagName("DvfsSetting")
-        if (dvfsSettings.length > 0) {
-            val settingElement = dvfsSettings.item(0) as Element
-            
-            marginMode = GpuMarginMode.fromValue(
-                getAttributeValue(settingElement, "margin_mode", 50)
-            )
-            timerBaseDvfsMargin = getAttributeValue(settingElement, "timer_base_dvfs_margin", 10)
-            loadingBaseDvfsStep = getAttributeValue(settingElement, "loading_base_dvfs_step", 4)
-            cwaitg = getAttributeValue(settingElement, "cwaitg", 0)
-        }
-
-        // Alternative: look for individual elements
-        val gpuMargin = doc.getElementsByTagName("gpu_margin_mode")
-        if (gpuMargin.length > 0) {
-            val textContent = (gpuMargin.item(0) as Element).textContent.trim()
-            textContent.toIntOrNull()?.let { marginMode = GpuMarginMode.fromValue(it) }
-        }
-
-        val timerMargin = doc.getElementsByTagName("timer_base_dvfs_margin")
-        if (timerMargin.length > 0) {
-            val textContent = (timerMargin.item(0) as Element).textContent.trim()
-            textContent.toIntOrNull()?.let { timerBaseDvfsMargin = it }
-        }
-
-        val loadingStep = doc.getElementsByTagName("loading_base_dvfs_step")
-        if (loadingStep.length > 0) {
-            val textContent = (loadingStep.item(0) as Element).textContent.trim()
-            textContent.toIntOrNull()?.let { loadingBaseDvfsStep = it }
-        }
-
-        return GpuDvfsConfig(
-            marginMode = marginMode,
-            timerBaseDvfsMargin = timerBaseDvfsMargin,
-            loadingBaseDvfsStep = loadingBaseDvfsStep,
-            cwaitg = cwaitg
         )
     }
 

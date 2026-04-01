@@ -21,22 +21,18 @@ fun MainDashboardScreen(
     gameConfigs: Map<String, GameTuningConfig>,
     scenarioConfigs: Map<String, PerformanceScenarioConfig>,
     memoryConfig: MemoryManagementConfig,
-    gpuConfig: GpuDvfsConfig,
     gameConfigAvailable: Boolean = false,
     scenarioConfigAvailable: Boolean = false,
     memoryConfigAvailable: Boolean = false,
-    gpuConfigAvailable: Boolean = false,
     gameConfigChanged: Boolean = false,
     scenarioConfigChanged: Boolean = false,
     memoryConfigChanged: Boolean = false,
-    gpuConfigChanged: Boolean = false,
     rootState: RootState = RootState(),
     applyState: ApplyState = ApplyState(),
     hasUnsavedChanges: Boolean = false,
     onNavigateToGames: () -> Unit,
     onNavigateToScenarios: () -> Unit,
     onNavigateToMemory: () -> Unit,
-    onNavigateToGpu: () -> Unit,
     onCopyLogs: () -> Unit,
     onRequestRoot: () -> Unit,
     onApplyConfiguration: () -> Unit,
@@ -191,7 +187,7 @@ fun MainDashboardScreen(
         }
 
         // External Changes Warning Card
-        if (gameConfigChanged || scenarioConfigChanged || memoryConfigChanged || gpuConfigChanged) {
+        if (gameConfigChanged || scenarioConfigChanged || memoryConfigChanged) {
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
@@ -221,7 +217,7 @@ fun MainDashboardScreen(
                         Text(
                             text = buildChangedConfigsText(
                                 gameConfigChanged, scenarioConfigChanged,
-                                memoryConfigChanged, gpuConfigChanged
+                                memoryConfigChanged
                             ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer
@@ -333,15 +329,6 @@ fun MainDashboardScreen(
             onClick = onNavigateToMemory
         )
 
-        ConfigCard(
-            title = "GPU DVFS Settings",
-            subtitle = "Mali-G76 MC4 @ 720-900 MHz",
-            icon = Icons.Default.Games,
-            configAvailable = gpuConfigAvailable,
-            hasExternalChange = gpuConfigChanged,
-            onClick = onNavigateToGpu
-        )
-
         // Info Card
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
@@ -418,7 +405,6 @@ private fun ApplyResultDialog(
                 ResultRow("Game Config", result.gameConfigWritten)
                 ResultRow("Scenario Config", result.scenarioConfigWritten)
                 ResultRow("Memory Config", result.memoryConfigWritten)
-                ResultRow("GPU Config", result.gpuConfigWritten)
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -520,14 +506,12 @@ private fun RootStatusIndicator(
 private fun buildChangedConfigsText(
     gameChanged: Boolean,
     scenarioChanged: Boolean,
-    memoryChanged: Boolean,
-    gpuChanged: Boolean
+    memoryChanged: Boolean
 ): String {
     val changed = mutableListOf<String>()
     if (gameChanged) changed.add("Game")
     if (scenarioChanged) changed.add("Scenario")
     if (memoryChanged) changed.add("Memory")
-    if (gpuChanged) changed.add("GPU")
     
     return "Config files modified: ${changed.joinToString(", ")}"
 }

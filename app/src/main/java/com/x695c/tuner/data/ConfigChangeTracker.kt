@@ -8,28 +8,13 @@ import java.security.MessageDigest
  * Detects if config files were modified outside of the APK.
  */
 object ConfigChangeTracker {
+    // Only paths verified from the X695C vendor dump are used.
 
     // Config file paths (private - never exposed in logs)
     private val trackedFiles = mapOf(
-        ConfigFileDetector.ConfigType.GAME_WHITELIST to listOf(
-            "/vendor/etc/power_app_cfg.xml",
-            "/vendor/etc/powerhint.xml",
-            "/data/vendor/power/power_app_cfg.xml"
-        ),
-        ConfigFileDetector.ConfigType.PERFORMANCE_SCENARIOS to listOf(
-            "/vendor/etc/powerscntbl.xml",
-            "/vendor/etc/powerhint_scene.xml"
-        ),
-        ConfigFileDetector.ConfigType.MEMORY_MANAGEMENT to listOf(
-            "/vendor/etc/policy_config_6g_ram.json",
-            "/vendor/etc/policy_config.json",
-            "/data/vendor/lmkd/policy_config.json"
-        ),
-        ConfigFileDetector.ConfigType.GPU_DVFS to listOf(
-            "/vendor/etc/gpu_dvfs_setting.xml",
-            "/vendor/etc/hwservicectrl.json",
-            "/sys/module/mali/parameters/dvfs_margin"
-        )
+        ConfigFileDetector.ConfigType.GAME_WHITELIST to listOf("/vendor/etc/power_app_cfg.xml"),
+        ConfigFileDetector.ConfigType.PERFORMANCE_SCENARIOS to listOf("/vendor/etc/powerscntbl.xml"),
+        ConfigFileDetector.ConfigType.MEMORY_MANAGEMENT to listOf("/vendor/etc/performance/policy_config_6g_ram.json")
     )
 
     // Store checksums from APK's last known state
@@ -86,7 +71,6 @@ object ConfigChangeTracker {
             ConfigFileDetector.ConfigType.GAME_WHITELIST -> "[GAME_CONFIG]"
             ConfigFileDetector.ConfigType.PERFORMANCE_SCENARIOS -> "[SCENARIO_TABLE]"
             ConfigFileDetector.ConfigType.MEMORY_MANAGEMENT -> "[MEMORY_CONFIG]"
-            ConfigFileDetector.ConfigType.GPU_DVFS -> "[GPU_CONFIG]"
         }
     }
 

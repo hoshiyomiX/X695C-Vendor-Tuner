@@ -10,34 +10,16 @@ import java.io.File
 object ConfigFileDetector {
 
     // Config file paths (private - never exposed in logs)
-    private val gameConfigPaths = listOf(
-        "/vendor/etc/power_app_cfg.xml",
-        "/vendor/etc/powerhint.xml",
-        "/data/vendor/power/power_app_cfg.xml"
-    )
+    private val gameConfigPaths = listOf("/vendor/etc/power_app_cfg.xml")
     
-    private val scenarioConfigPaths = listOf(
-        "/vendor/etc/powerscntbl.xml",
-        "/vendor/etc/powerhint_scene.xml"
-    )
+    private val scenarioConfigPaths = listOf("/vendor/etc/powerscntbl.xml")
     
-    private val memoryConfigPaths = listOf(
-        "/vendor/etc/policy_config_6g_ram.json",
-        "/vendor/etc/policy_config.json",
-        "/data/vendor/lmkd/policy_config.json"
-    )
+    private val memoryConfigPaths = listOf("/vendor/etc/performance/policy_config_6g_ram.json")
     
-    private val gpuConfigPaths = listOf(
-        "/vendor/etc/gpu_dvfs_setting.xml",
-        "/vendor/etc/hwservicectrl.json",
-        "/sys/module/mali/parameters/dvfs_margin"
-    )
-
     enum class ConfigType {
         GAME_WHITELIST,
         PERFORMANCE_SCENARIOS,
-        MEMORY_MANAGEMENT,
-        GPU_DVFS
+        MEMORY_MANAGEMENT
     }
 
     data class ConfigStatus(
@@ -61,7 +43,6 @@ object ConfigFileDetector {
         detectConfig(ConfigType.GAME_WHITELIST, gameConfigPaths)
         detectConfig(ConfigType.PERFORMANCE_SCENARIOS, scenarioConfigPaths)
         detectConfig(ConfigType.MEMORY_MANAGEMENT, memoryConfigPaths)
-        detectConfig(ConfigType.GPU_DVFS, gpuConfigPaths)
         
         return detectedConfigs.toMap()
     }
@@ -122,7 +103,6 @@ object ConfigFileDetector {
             ConfigType.GAME_WHITELIST -> gameConfigPaths
             ConfigType.PERFORMANCE_SCENARIOS -> scenarioConfigPaths
             ConfigType.MEMORY_MANAGEMENT -> memoryConfigPaths
-            ConfigType.GPU_DVFS -> gpuConfigPaths
         }
 
         for (path in paths) {

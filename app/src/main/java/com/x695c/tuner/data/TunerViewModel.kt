@@ -25,9 +25,6 @@ class TunerViewModel : ViewModel() {
     private val _memoryConfig = MutableStateFlow(MemoryManagementConfig())
     val memoryConfig: StateFlow<MemoryManagementConfig> = _memoryConfig.asStateFlow()
 
-    private val _gpuConfig = MutableStateFlow(GpuDvfsConfig())
-    val gpuConfig: StateFlow<GpuDvfsConfig> = _gpuConfig.asStateFlow()
-
     // Config file availability status
     private val _configAvailability = MutableStateFlow<Map<ConfigFileDetector.ConfigType, ConfigFileDetector.ConfigStatus>>(emptyMap())
     val configAvailability: StateFlow<Map<ConfigFileDetector.ConfigType, ConfigFileDetector.ConfigStatus>> = _configAvailability.asStateFlow()
@@ -218,12 +215,6 @@ class TunerViewModel : ViewModel() {
                 ActivityLogger.log("ConfigParser", "MEMORY_CONFIG_LOADED", "Loaded memory config from device")
             }
 
-            // Try to parse GPU config
-            val parsedGpuConfig = ConfigFileParser.parseGpuConfig()
-            if (parsedGpuConfig != null) {
-                _gpuConfig.value = parsedGpuConfig
-                ActivityLogger.log("ConfigParser", "GPU_CONFIG_LOADED", "Loaded GPU config from device")
-            }
         }
     }
 
@@ -259,16 +250,10 @@ class TunerViewModel : ViewModel() {
         _gameConfigs.value = getDefaultGameConfigs()
         _scenarioConfigs.value = getDefaultScenarioConfigs()
         _memoryConfig.value = MemoryManagementConfig()
-        _gpuConfig.value = GpuDvfsConfig()
     }
 
     private fun loadPowerSavingProfile() {
         ActivityLogger.log("Profile", "LOAD_POWER_SAVING", "Loading power saving profile settings")
-        _gpuConfig.value = GpuDvfsConfig(
-            marginMode = GpuMarginMode.MINIMUM,
-            timerBaseDvfsMargin = 10,
-            loadingBaseDvfsStep = 2
-        )
         _memoryConfig.value = MemoryManagementConfig(
             features = MemoryFeatureConfig(
                 appStartLimit = true,
@@ -288,11 +273,6 @@ class TunerViewModel : ViewModel() {
 
     private fun loadBalancedProfile() {
         ActivityLogger.log("Profile", "LOAD_BALANCED", "Loading balanced profile settings")
-        _gpuConfig.value = GpuDvfsConfig(
-            marginMode = GpuMarginMode.BALANCED,
-            timerBaseDvfsMargin = 10,
-            loadingBaseDvfsStep = 4
-        )
         _memoryConfig.value = MemoryManagementConfig(
             features = MemoryFeatureConfig(
                 appStartLimit = true,
@@ -312,11 +292,6 @@ class TunerViewModel : ViewModel() {
 
     private fun loadPerformanceProfile() {
         ActivityLogger.log("Profile", "LOAD_PERFORMANCE", "Loading performance profile settings")
-        _gpuConfig.value = GpuDvfsConfig(
-            marginMode = GpuMarginMode.HIGH,
-            timerBaseDvfsMargin = 20,
-            loadingBaseDvfsStep = 6
-        )
         _memoryConfig.value = MemoryManagementConfig(
             features = MemoryFeatureConfig(
                 appStartLimit = false,
@@ -340,11 +315,6 @@ class TunerViewModel : ViewModel() {
 
     private fun loadGamingProfile() {
         ActivityLogger.log("Profile", "LOAD_GAMING", "Loading gaming profile settings")
-        _gpuConfig.value = GpuDvfsConfig(
-            marginMode = GpuMarginMode.MAXIMUM,
-            timerBaseDvfsMargin = 30,
-            loadingBaseDvfsStep = 8
-        )
         _memoryConfig.value = MemoryManagementConfig(
             features = MemoryFeatureConfig(
                 appStartLimit = false,
@@ -427,20 +397,6 @@ class TunerViewModel : ViewModel() {
         )
     }
 
-    fun updateGpuConfig(config: GpuDvfsConfig) {
-        val oldConfig = _gpuConfig.value
-        _gpuConfig.value = config
-        _selectedProfile.value = TuningProfile.CUSTOM
-        _uiState.value = _uiState.value.copy(hasUnsavedChanges = true)
-
-        ActivityLogger.logConfigChange(
-            "GpuSettings",
-            "GpuConfig",
-            oldConfig.toString(),
-            config.toString()
-        )
-    }
-
     /**
      * Add a custom game by package name.
      * Creates a default config for the new game.
@@ -479,8 +435,7 @@ class TunerViewModel : ViewModel() {
      * This will write to:
      * - /vendor/etc/power_app_cfg.xml (game configs)
      * - /vendor/etc/powerscntbl.xml (scenario configs)
-     * - /vendor/etc/policy_config_6g_ram.json (memory config)
-     * - /vendor/etc/gpu_dvfs_setting.xml (GPU config)
+     * - /vendor/etc/performance/policy_config_6g_ram.json (memory config)
      */
     fun applyConfiguration() {
         // Check root access first
@@ -506,15 +461,13 @@ class TunerViewModel : ViewModel() {
                 val results = ConfigWriter.writeAllConfigs(
                     gameConfigs = _gameConfigs.value,
                     scenarioConfigs = _scenarioConfigs.value,
-                    memoryConfig = _memoryConfig.value,
-                    gpuConfig = _gpuConfig.value
+                    memoryConfig = _memoryConfig.value
                 )
 
                 // Process results
                 val gameResult = results.find { it.configName == "game_cfg" }
                 val scenarioResult = results.find { it.configName == "scenario_cfg" }
                 val memoryResult = results.find { it.configName == "mem_cfg" }
-                val gpuResult = results.find { it.configName == "gpu_cfg" }
 
                 val errors = results.filter { !it.success }.mapNotNull { it.errorMessage }
                 val success = results.all { it.success }
@@ -524,7 +477,6 @@ class TunerViewModel : ViewModel() {
                     gameConfigWritten = gameResult?.success ?: false,
                     scenarioConfigWritten = scenarioResult?.success ?: false,
                     memoryConfigWritten = memoryResult?.success ?: false,
-                    gpuConfigWritten = gpuResult?.success ?: false,
                     errorMessages = errors
                 )
 
@@ -603,13 +555,11 @@ data class ApplyResult(
     val gameConfigWritten: Boolean = false,
     val scenarioConfigWritten: Boolean = false,
     val memoryConfigWritten: Boolean = false,
-    val gpuConfigWritten: Boolean = false,
     val errorMessages: List<String> = emptyList()
 ) {
     val successCount: Int
-        get() = listOf(gameConfigWritten, scenarioConfigWritten, memoryConfigWritten, gpuConfigWritten)
-            .count { it }
+        get() = listOf(gameConfigWritten, scenarioConfigWritten, memoryConfigWritten).count { it }
 
     val totalConfigs: Int
-        get() = 4
+        get() = 3
 }

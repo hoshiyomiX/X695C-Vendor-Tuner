@@ -12,19 +12,16 @@ import java.io.InputStreamReader
  * IMPORTANT: Without root access, NO configuration changes can be applied!
  */
 object ConfigWriter {
+    // Only paths verified from the X695C vendor dump are used.
 
     // Config file paths (obfuscated in logs)
     private const val GAME_CONFIG_PATH = "/vendor/etc/power_app_cfg.xml"
     private const val SCENARIO_CONFIG_PATH = "/vendor/etc/powerscntbl.xml"
-    private const val MEMORY_CONFIG_PATH = "/vendor/etc/policy_config_6g_ram.json"
-    private const val GPU_CONFIG_PATH = "/vendor/etc/gpu_dvfs_setting.xml"
-
+    private const val MEMORY_CONFIG_PATH = "/vendor/etc/performance/policy_config_6g_ram.json"
     // Obfuscated names for logging
     private const val GAME_CONFIG_NAME = "game_cfg"
     private const val SCENARIO_CONFIG_NAME = "scenario_cfg"
     private const val MEMORY_CONFIG_NAME = "mem_cfg"
-    private const val GPU_CONFIG_NAME = "gpu_cfg"
-
     /**
      * Result of a write operation
      */
@@ -214,54 +211,20 @@ object ConfigWriter {
     }
 
     /**
-     * Write GPU DVFS configuration to gpu_dvfs_setting.xml
-     * Requires ROOT access!
-     */
-    fun writeGpuConfig(config: GpuDvfsConfig): WriteResult {
-        if (!checkRootOrLog()) {
-            return WriteResult(
-                success = false,
-                configName = GPU_CONFIG_NAME,
-                errorMessage = "Root access required"
-            )
-        }
-
-        ActivityLogger.log("ConfigWriter", "WRITE_START", "Writing $GPU_CONFIG_NAME")
-
-        return try {
-            val xmlContent = buildGpuConfigXml(config)
-            val result = writeToFileWithRoot(GPU_CONFIG_PATH, xmlContent)
-
-            if (result.success) {
-                ActivityLogger.log("ConfigWriter", "WRITE_SUCCESS", "$GPU_CONFIG_NAME written successfully")
-                WriteResult(success = true, configName = GPU_CONFIG_NAME)
-            } else {
-                ActivityLogger.logError("ConfigWriter", "Failed to write $GPU_CONFIG_NAME: ${result.errorMessage}")
-                result.copy(configName = GPU_CONFIG_NAME)
-            }
-        } catch (e: Exception) {
-            ActivityLogger.logError("ConfigWriter", "Exception writing $GPU_CONFIG_NAME: ${e.message}")
-            WriteResult(success = false, configName = GPU_CONFIG_NAME, errorMessage = e.message)
-        }
-    }
-
-    /**
      * Write all configurations at once.
      * Returns a list of results for each config type.
      */
     fun writeAllConfigs(
         gameConfigs: Map<String, GameTuningConfig>,
         scenarioConfigs: Map<String, PerformanceScenarioConfig>,
-        memoryConfig: MemoryManagementConfig,
-        gpuConfig: GpuDvfsConfig
+        memoryConfig: MemoryManagementConfig
     ): List<WriteResult> {
         if (!checkRootOrLog()) {
             ActivityLogger.logError("ConfigWriter", "Cannot write configs: Root access required")
             return listOf(
                 WriteResult(false, GAME_CONFIG_NAME, "Root access required"),
                 WriteResult(false, SCENARIO_CONFIG_NAME, "Root access required"),
-                WriteResult(false, MEMORY_CONFIG_NAME, "Root access required"),
-                WriteResult(false, GPU_CONFIG_NAME, "Root access required")
+                WriteResult(false, MEMORY_CONFIG_NAME, "Root access required")
             )
         }
 
@@ -271,7 +234,6 @@ object ConfigWriter {
         results.add(writeGameConfigs(gameConfigs))
         results.add(writeScenarioConfigs(scenarioConfigs))
         results.add(writeMemoryConfig(memoryConfig))
-        results.add(writeGpuConfig(gpuConfig))
 
         val successCount = results.count { it.success }
         ActivityLogger.log("ConfigWriter", "WRITE_ALL_COMPLETE", "$successCount/${results.size} configs written successfully")
@@ -480,19 +442,6 @@ object ConfigWriter {
         return json.toString(2)
     }
 
-    private fun buildGpuConfigXml(config: GpuDvfsConfig): String {
-        val sb = StringBuilder()
-        sb.appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
-        sb.appendLine("<GpuDvfsSetting>")
-        sb.appendLine("  <DvfsSetting")
-        sb.appendLine("    margin_mode=\"${config.marginMode.value}\"")
-        sb.appendLine("    timer_base_dvfs_margin=\"${config.timerBaseDvfsMargin}\"")
-        sb.appendLine("    loading_base_dvfs_step=\"${config.loadingBaseDvfsStep}\"")
-        sb.appendLine("    cwaitg=\"${config.cwaitg}\"/>")
-        sb.appendLine("</GpuDvfsSetting>")
-        return sb.toString()
-    }
-
     /**
      * Restore a config file from backup.
      */
@@ -505,7 +454,6 @@ object ConfigWriter {
             GAME_CONFIG_NAME -> GAME_CONFIG_PATH to GAME_CONFIG_NAME
             SCENARIO_CONFIG_NAME -> SCENARIO_CONFIG_PATH to SCENARIO_CONFIG_NAME
             MEMORY_CONFIG_NAME -> MEMORY_CONFIG_PATH to MEMORY_CONFIG_NAME
-            GPU_CONFIG_NAME -> GPU_CONFIG_PATH to GPU_CONFIG_NAME
             else -> return WriteResult(success = false, configName = configName, errorMessage = "Unknown config")
         }
 

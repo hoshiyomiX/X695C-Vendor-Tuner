@@ -248,13 +248,6 @@ data class MemoryManagementConfig(
     val cachedProcCount: Int = 16
 )
 
-data class GpuDvfsConfig(
-    val marginMode: GpuMarginMode = GpuMarginMode.BALANCED,
-    val timerBaseDvfsMargin: Int = 10,
-    val loadingBaseDvfsStep: Int = 4,
-    val cwaitg: Int = 0
-)
-
 // ==================== PRESET PROFILES ====================
 
 enum class TuningProfile(val displayName: String, val description: String) {
@@ -270,8 +263,7 @@ data class FullTuningConfig(
     val profile: TuningProfile = TuningProfile.DEFAULT,
     val gameConfigs: Map<String, GameTuningConfig> = emptyMap(),
     val scenarioConfigs: Map<String, PerformanceScenarioConfig> = emptyMap(),
-    val memoryConfig: MemoryManagementConfig = MemoryManagementConfig(),
-    val gpuConfig: GpuDvfsConfig = GpuDvfsConfig()
+    val memoryConfig: MemoryManagementConfig = MemoryManagementConfig()
 )
 
 // ==================== HELPER FUNCTIONS ====================

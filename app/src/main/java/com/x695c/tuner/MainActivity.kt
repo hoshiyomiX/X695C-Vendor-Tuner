@@ -98,7 +98,7 @@ sealed class Screen {
     object Scenarios : Screen()
     data class ScenarioDetail(val scenarioName: String) : Screen()
     object Memory : Screen()
-    object Gpu : Screen()
+
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,7 +110,6 @@ fun TunerApp(
     val gameConfigs by viewModel.gameConfigs.collectAsState()
     val scenarioConfigs by viewModel.scenarioConfigs.collectAsState()
     val memoryConfig by viewModel.memoryConfig.collectAsState()
-    val gpuConfig by viewModel.gpuConfig.collectAsState()
     val configAvailability by viewModel.configAvailability.collectAsState()
     val rootState by viewModel.rootState.collectAsState()
     val configChangeStatus by viewModel.configChangeStatus.collectAsState()
@@ -164,14 +163,10 @@ fun TunerApp(
     val gameConfigAvailable = configAvailability[ConfigFileDetector.ConfigType.GAME_WHITELIST]?.available ?: false
     val scenarioConfigAvailable = configAvailability[ConfigFileDetector.ConfigType.PERFORMANCE_SCENARIOS]?.available ?: false
     val memoryConfigAvailable = configAvailability[ConfigFileDetector.ConfigType.MEMORY_MANAGEMENT]?.available ?: false
-    val gpuConfigAvailable = configAvailability[ConfigFileDetector.ConfigType.GPU_DVFS]?.available ?: false
-
     // Check config change status
     val gameConfigChanged = configChangeStatus[ConfigFileDetector.ConfigType.GAME_WHITELIST]?.hasChanged ?: false
     val scenarioConfigChanged = configChangeStatus[ConfigFileDetector.ConfigType.PERFORMANCE_SCENARIOS]?.hasChanged ?: false
     val memoryConfigChanged = configChangeStatus[ConfigFileDetector.ConfigType.MEMORY_MANAGEMENT]?.hasChanged ?: false
-    val gpuConfigChanged = configChangeStatus[ConfigFileDetector.ConfigType.GPU_DVFS]?.hasChanged ?: false
-
     // Root Request Dialog
     if (showRootDialog) {
         RootRequestDialog(
@@ -207,22 +202,18 @@ fun TunerApp(
                     gameConfigs = gameConfigs,
                     scenarioConfigs = scenarioConfigs,
                     memoryConfig = memoryConfig,
-                    gpuConfig = gpuConfig,
                     gameConfigAvailable = gameConfigAvailable,
                     scenarioConfigAvailable = scenarioConfigAvailable,
                     memoryConfigAvailable = memoryConfigAvailable,
-                    gpuConfigAvailable = gpuConfigAvailable,
                     gameConfigChanged = gameConfigChanged,
                     scenarioConfigChanged = scenarioConfigChanged,
                     memoryConfigChanged = memoryConfigChanged,
-                    gpuConfigChanged = gpuConfigChanged,
                     rootState = rootState,
                     applyState = applyState,
                     hasUnsavedChanges = uiState.hasUnsavedChanges,
                     onNavigateToGames = { navigateTo(Screen.Games) },
                     onNavigateToScenarios = { navigateTo(Screen.Scenarios) },
                     onNavigateToMemory = { navigateTo(Screen.Memory) },
-                    onNavigateToGpu = { navigateTo(Screen.Gpu) },
                     onCopyLogs = { copyLogsToClipboard() },
                     onRequestRoot = { showRootDialog = true },
                     onApplyConfiguration = { viewModel.applyConfiguration() },
@@ -279,12 +270,7 @@ fun TunerApp(
                     onBack = { navigateBack() }
                 )
 
-                is Screen.Gpu -> GpuSettingsScreen(
-                    config = gpuConfig,
-                    configAvailable = gpuConfigAvailable,
-                    onConfigChange = { viewModel.updateGpuConfig(it) },
-                    onBack = { navigateBack() }
-                )
+
             }
         }
     }
