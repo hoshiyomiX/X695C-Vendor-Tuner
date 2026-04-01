@@ -134,7 +134,7 @@ fun MainDashboardScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.EditNote,
+                        imageVector = Icons.Default.Edit,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(24.dp)
