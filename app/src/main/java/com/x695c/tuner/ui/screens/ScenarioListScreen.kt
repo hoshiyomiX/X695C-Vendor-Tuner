@@ -1,10 +1,11 @@
-package com.x695c.optimizer.ui.screens
+package com.x695c.tuner.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Launch
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,14 +13,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.x695c.optimizer.data.GameOptimizationConfig
+import com.x695c.tuner.data.PerformanceScenarioConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GameListScreen(
-    gameConfigs: Map<String, GameOptimizationConfig>,
+fun ScenarioListScreen(
+    scenarioConfigs: Map<String, PerformanceScenarioConfig>,
     configAvailable: Boolean = false,
-    onGameSelect: (String) -> Unit,
+    onScenarioSelect: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -28,7 +29,7 @@ fun GameListScreen(
         TopAppBar(
             title = { 
                 Text(
-                    text = "Game Optimization",
+                    text = "Performance Scenarios",
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -43,7 +44,7 @@ fun GameListScreen(
             )
         )
 
-        // Game List
+        // Scenario List
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -78,17 +79,16 @@ fun GameListScreen(
                 }
                 
                 Text(
-                    text = "Select a game to configure optimization settings",
+                    text = "Select a scenario to configure performance settings",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            items(gameConfigs.entries.toList()) { (packageName, config) ->
-                val gameName = getGameName(packageName)
+            items(scenarioConfigs.entries.toList()) { (scenarioName, config) ->
                 ElevatedCard(
-                    onClick = { onGameSelect(packageName) },
+                    onClick = { onScenarioSelect(scenarioName) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -98,21 +98,21 @@ fun GameListScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.VideogameAsset,
+                            imageVector = getScenarioIcon(scenarioName),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.size(36.dp)
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = gameName,
+                                text = getScenarioDisplayName(scenarioName),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = packageName,
+                                text = getScenarioDescription(scenarioName),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -121,26 +121,30 @@ fun GameListScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                SuggestionChip(
-                                    onClick = {},
-                                    label = { 
-                                        Text(
-                                            text = "Thermal: ${config.thermalPolicy.description.split(" ").first()}",
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
-                                    },
-                                    modifier = Modifier.height(24.dp)
-                                )
-                                SuggestionChip(
-                                    onClick = {},
-                                    label = { 
-                                        Text(
-                                            text = "GPU: ${config.gpuMarginMode.value}",
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
-                                    },
-                                    modifier = Modifier.height(24.dp)
-                                )
+                                if (config.cpuFreqMinCluster0 > 0) {
+                                    SuggestionChip(
+                                        onClick = {},
+                                        label = { 
+                                            Text(
+                                                text = "CPU: Boost",
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                        },
+                                        modifier = Modifier.height(24.dp)
+                                    )
+                                }
+                                if (config.uclampMin.value > 0) {
+                                    SuggestionChip(
+                                        onClick = {},
+                                        label = { 
+                                            Text(
+                                                text = "UCLAMP: ${config.uclampMin.value}%",
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                        },
+                                        modifier = Modifier.height(24.dp)
+                                    )
+                                }
                             }
                         }
                         Icon(
@@ -170,7 +174,7 @@ fun GameListScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "These games have default optimizations from the device. Modify as needed.",
+                            text = "Scenarios are triggered automatically by system events.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -181,30 +185,44 @@ fun GameListScreen(
     }
 }
 
-private fun getGameName(packageName: String): String {
-    return when (packageName) {
-        "com.tencent.tmgp.sgame" -> "Honor of Kings"
-        "com.tencent.tmgp.sgamece" -> "Honor of Kings (CE)"
-        "com.tencent.ig" -> "PUBG Mobile"
-        "com.tencent.igce" -> "PUBG Mobile (CE)"
-        "com.tencent.iglite" -> "PUBG Mobile Lite"
-        "com.tencent.tmgp.pubgmhd" -> "PUBG Mobile HD"
-        "com.tencent.tmgp.pubgm" -> "PUBG Mobile (CN)"
-        "com.dts.freefireth" -> "Free Fire"
-        "com.tencent.tmgp.cf" -> "CrossFire Mobile"
-        "com.miHoYo.enterprise.NGHSoD" -> "Genshin Impact"
-        "com.miHoYo.bh3.mi" -> "Honkai Impact 3rd"
-        "com.tencent.tmgp.bh3" -> "Honkai Impact 3rd (CN)"
-        "com.netease.ko" -> "Knives Out"
-        "com.netease.hyxd" -> "Cyber Hunter"
-        "com.netease.mrzh" -> "LifeAfter"
-        "com.epicgames.fortnite" -> "Fortnite"
-        "com.madfingergames.legends" -> "Shadowgun Legends"
-        "com.gameloft.android.ANMP.GloftA9HM" -> "Asphalt 9"
-        "com.studiowildcard.wardrumstudios.ark" -> "ARK: Survival Evolved"
-        "com.tencent.mobileqq" -> "Mobile QQ"
-        "com.ss.android.ugc.aweme" -> "TikTok"
-        "com.sina.weibo" -> "Weibo"
-        else -> packageName.substringAfterLast(".").replace("_", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-    }
+private fun getScenarioIcon(scenarioName: String) = when (scenarioName) {
+    "LAUNCH" -> Icons.AutoMirrored.Filled.Launch
+    "MTKPOWER_HINT_APP_TOUCH" -> Icons.Default.TouchApp
+    "MTKPOWER_HINT_PROCESS_CREATE" -> Icons.Default.AddCircle
+    "MTKPOWER_HINT_APP_ROTATE" -> Icons.Default.ScreenRotation
+    "MTKPOWER_HINT_FLINGER_PRINT" -> Icons.Default.Fingerprint
+    "MTKPOWER_HINT_PACK_SWITCH" -> Icons.Default.SwapHoriz
+    "MTKPOWER_HINT_ACT_SWITCH" -> Icons.Default.SwapVert
+    "INTERACTION" -> Icons.Default.TouchApp
+    "MTKPOWER_HINT_GALLERY_BOOST" -> Icons.Default.PhotoLibrary
+    "MTKPOWER_HINT_WFD" -> Icons.Default.Cast
+    else -> Icons.Default.Settings
+}
+
+private fun getScenarioDisplayName(scenarioName: String) = when (scenarioName) {
+    "LAUNCH" -> "App Launch"
+    "MTKPOWER_HINT_APP_TOUCH" -> "Touch Response"
+    "MTKPOWER_HINT_PROCESS_CREATE" -> "Process Creation"
+    "MTKPOWER_HINT_APP_ROTATE" -> "Screen Rotation"
+    "MTKPOWER_HINT_FLINGER_PRINT" -> "Fingerprint Scan"
+    "MTKPOWER_HINT_PACK_SWITCH" -> "Package Switch"
+    "MTKPOWER_HINT_ACT_SWITCH" -> "Activity Switch"
+    "INTERACTION" -> "UI Interaction"
+    "MTKPOWER_HINT_GALLERY_BOOST" -> "Gallery Boost"
+    "MTKPOWER_HINT_WFD" -> "WiFi Display"
+    else -> scenarioName.replace("MTKPOWER_HINT_", "").replace("_", " ")
+}
+
+private fun getScenarioDescription(scenarioName: String) = when (scenarioName) {
+    "LAUNCH" -> "Boosts performance when launching apps"
+    "MTKPOWER_HINT_APP_TOUCH" -> "Quick CPU boost on touch events"
+    "MTKPOWER_HINT_PROCESS_CREATE" -> "Boosts for new process creation"
+    "MTKPOWER_HINT_APP_ROTATE" -> "Smooth screen rotation animation"
+    "MTKPOWER_HINT_FLINGER_PRINT" -> "Fast fingerprint authentication"
+    "MTKPOWER_HINT_PACK_SWITCH" -> "Tunes package switching"
+    "MTKPOWER_HINT_ACT_SWITCH" -> "Fast activity transitions"
+    "INTERACTION" -> "Smooth scrolling and fling gestures"
+    "MTKPOWER_HINT_GALLERY_BOOST" -> "Fast gallery image loading"
+    "MTKPOWER_HINT_WFD" -> "Wireless display tuning"
+    else -> "System performance scenario"
 }

@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.x695c.optimizer"
+    namespace = "com.x695c.tuner"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.x695c.optimizer"
+        applicationId = "com.x695c.tuner"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

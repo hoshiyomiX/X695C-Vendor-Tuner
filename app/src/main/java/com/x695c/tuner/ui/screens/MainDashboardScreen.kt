@@ -1,4 +1,4 @@
-package com.x695c.optimizer.ui.screens
+package com.x695c.tuner.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,14 +12,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.x695c.optimizer.data.*
+import com.x695c.tuner.data.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainDashboardScreen(
-    selectedProfile: OptimizationProfile,
-    onProfileChange: (OptimizationProfile) -> Unit,
-    gameConfigs: Map<String, GameOptimizationConfig>,
+    selectedProfile: TuningProfile,
+    onProfileChange: (TuningProfile) -> Unit,
+    gameConfigs: Map<String, GameTuningConfig>,
     scenarioConfigs: Map<String, PerformanceScenarioConfig>,
     memoryConfig: MemoryManagementConfig,
     gpuConfig: GpuDvfsConfig,
@@ -63,7 +63,7 @@ fun MainDashboardScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "X695C Vendor Optimizer",
+                            text = "X695C Vendor Tuner",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -84,7 +84,7 @@ fun MainDashboardScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Optimization Profile",
+                    text = "Tuning Profile",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -117,7 +117,7 @@ fun MainDashboardScreen(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
-                        OptimizationProfile.entries.forEach { profile ->
+                        TuningProfile.entries.forEach { profile ->
                             DropdownMenuItem(
                                 text = {
                                     Column {
@@ -154,7 +154,7 @@ fun MainDashboardScreen(
 
         // Config Cards - MD3 Expressive
         ConfigCard(
-            title = "Game Optimization",
+            title = "Game Tuning",
             subtitle = "${gameConfigs.size} games configured",
             icon = Icons.Default.VideogameAsset,
             configAvailable = gameConfigAvailable,
@@ -211,7 +211,7 @@ fun MainDashboardScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${com.x695c.optimizer.data.ActivityLogger.getLogsCount()} entries recorded",
+                        text = "${com.x695c.tuner.data.ActivityLogger.getLogsCount()} entries recorded",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

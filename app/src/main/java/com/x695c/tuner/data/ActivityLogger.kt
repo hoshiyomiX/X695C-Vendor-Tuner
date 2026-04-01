@@ -1,4 +1,4 @@
-package com.x695c.optimizer.data
+package com.x695c.tuner.data
 
 import java.text.SimpleDateFormat
 import java.util.*
@@ -57,7 +57,7 @@ object ActivityLogger {
 
     fun getFormattedLogs(): String {
         val sb = StringBuilder()
-        sb.appendLine("=== X695C Vendor Optimizer Activity Log ===")
+        sb.appendLine("=== X695C Vendor Tuner Activity Log ===")
         sb.appendLine("Generated: ${dateFormat.format(Date())}")
         sb.appendLine("Total entries: ${logs.size}")
         sb.appendLine("==========================================")

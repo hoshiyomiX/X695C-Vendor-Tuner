@@ -1,7 +1,7 @@
-package com.x695c.optimizer.data
+package com.x695c.tuner.data
 
 /**
- * Data models for X695C Vendor Optimization Configuration
+ * Data models for X695C Vendor Tuning Configuration
  * Device: Infinix Note 10 Pro NFC
  * SoC: MediaTek Helio G95 (MT6785)
  * 
@@ -159,7 +159,7 @@ enum class WeakSignalOpt(val value: Int, val description: String) {
 
 // ==================== CONFIGURATION DATA CLASSES ====================
 
-data class GameOptimizationConfig(
+data class GameTuningConfig(
     val packageName: String,
     val thermalPolicy: ThermalPolicy = ThermalPolicy.DEFAULT,
     val gpuMarginMode: GpuMarginMode = GpuMarginMode.BALANCED,
@@ -257,18 +257,18 @@ data class GpuDvfsConfig(
 
 // ==================== PRESET PROFILES ====================
 
-enum class OptimizationProfile(val displayName: String, val description: String) {
+enum class TuningProfile(val displayName: String, val description: String) {
     DEFAULT("Default", "Stock configuration"),
-    POWER_SAVING("Power Saving", "Optimized for battery life"),
+    POWER_SAVING("Power Saving", "Tuned for battery life"),
     BALANCED("Balanced", "Balance between performance and battery"),
-    PERFORMANCE("Performance", "Optimized for smooth operation"),
+    PERFORMANCE("Performance", "Tuned for smooth operation"),
     GAMING("Gaming", "Maximum performance for gaming"),
     CUSTOM("Custom", "User-defined configuration")
 }
 
-data class FullOptimizationConfig(
-    val profile: OptimizationProfile = OptimizationProfile.DEFAULT,
-    val gameConfigs: Map<String, GameOptimizationConfig> = emptyMap(),
+data class FullTuningConfig(
+    val profile: TuningProfile = TuningProfile.DEFAULT,
+    val gameConfigs: Map<String, GameTuningConfig> = emptyMap(),
     val scenarioConfigs: Map<String, PerformanceScenarioConfig> = emptyMap(),
     val memoryConfig: MemoryManagementConfig = MemoryManagementConfig(),
     val gpuConfig: GpuDvfsConfig = GpuDvfsConfig()
@@ -277,14 +277,14 @@ data class FullOptimizationConfig(
 // ==================== HELPER FUNCTIONS ====================
 
 /**
- * Default game configurations optimized for Helio G95
+ * Default game configurations tuned for Helio G95
  * GPU: Mali-G76 MC4 @ 720-900 MHz
  * CPU: 2x A76 @ 2.05 GHz + 6x A55 @ 2.0 GHz
  */
-fun getDefaultGameConfigs(): Map<String, GameOptimizationConfig> {
+fun getDefaultGameConfigs(): Map<String, GameTuningConfig> {
     return mapOf(
         // Honor of Kings - High intensity MOBA
-        "com.tencent.tmgp.sgame" to GameOptimizationConfig(
+        "com.tencent.tmgp.sgame" to GameTuningConfig(
             packageName = "com.tencent.tmgp.sgame",
             thermalPolicy = ThermalPolicy.PERFORMANCE,
             gpuMarginMode = GpuMarginMode.HIGH,
@@ -296,7 +296,7 @@ fun getDefaultGameConfigs(): Map<String, GameOptimizationConfig> {
             coldLaunchTime = 25000
         ),
         // PUBG Mobile - Battle Royale
-        "com.tencent.ig" to GameOptimizationConfig(
+        "com.tencent.ig" to GameTuningConfig(
             packageName = "com.tencent.ig",
             thermalPolicy = ThermalPolicy.PERFORMANCE,
             gpuMarginMode = GpuMarginMode.HIGH,
@@ -304,15 +304,15 @@ fun getDefaultGameConfigs(): Map<String, GameOptimizationConfig> {
             networkBoost = NetworkBoost.STANDARD,
             weakSignalOpt = WeakSignalOpt.ENABLED
         ),
-        // Free Fire - Less demanding, optimize for smoothness
-        "com.dts.freefireth" to GameOptimizationConfig(
+        // Free Fire - Less demanding, tune for smoothness
+        "com.dts.freefireth" to GameTuningConfig(
             packageName = "com.dts.freefireth",
             thermalPolicy = ThermalPolicy.BALANCED,
             gpuMarginMode = GpuMarginMode.BALANCED,
             uclampMin = UclampMin.MEDIUM
         ),
         // PUBG Mobile HD - More GPU intensive
-        "com.tencent.tmgp.pubgmhd" to GameOptimizationConfig(
+        "com.tencent.tmgp.pubgmhd" to GameTuningConfig(
             packageName = "com.tencent.tmgp.pubmh",
             thermalPolicy = ThermalPolicy.PERFORMANCE,
             gpuMarginMode = GpuMarginMode.MAXIMUM,
@@ -322,7 +322,7 @@ fun getDefaultGameConfigs(): Map<String, GameOptimizationConfig> {
             wifiLowLatency = WifiLowLatency.ENABLED
         ),
         // Genshin Impact - Very demanding
-        "com.miHoYo.enterprise.NGHSoD" to GameOptimizationConfig(
+        "com.miHoYo.enterprise.NGHSoD" to GameTuningConfig(
             packageName = "com.miHoYo.enterprise.NGHSoD",
             thermalPolicy = ThermalPolicy.AGGRESSIVE,
             gpuMarginMode = GpuMarginMode.MAXIMUM,
@@ -334,7 +334,7 @@ fun getDefaultGameConfigs(): Map<String, GameOptimizationConfig> {
             weakSignalOpt = WeakSignalOpt.ENABLED
         ),
         // Mobile Legends
-        "com.mobile.legends" to GameOptimizationConfig(
+        "com.mobile.legends" to GameTuningConfig(
             packageName = "com.mobile.legends",
             thermalPolicy = ThermalPolicy.BALANCED,
             gpuMarginMode = GpuMarginMode.BALANCED,
@@ -342,7 +342,7 @@ fun getDefaultGameConfigs(): Map<String, GameOptimizationConfig> {
             networkBoost = NetworkBoost.STANDARD
         ),
         // Call of Duty Mobile
-        "com.activision.callofduty.shooter" to GameOptimizationConfig(
+        "com.activision.callofduty.shooter" to GameTuningConfig(
             packageName = "com.activision.callofduty.shooter",
             thermalPolicy = ThermalPolicy.PERFORMANCE,
             gpuMarginMode = GpuMarginMode.HIGH,
@@ -354,7 +354,7 @@ fun getDefaultGameConfigs(): Map<String, GameOptimizationConfig> {
 }
 
 /**
- * Default scenario configurations optimized for Helio G95
+ * Default scenario configurations tuned for Helio G95
  * 
  * CPU Frequency Limits (in kHz):
  * - Cluster 0 (Little - Cortex-A55): Max 2000000 (2.0 GHz)

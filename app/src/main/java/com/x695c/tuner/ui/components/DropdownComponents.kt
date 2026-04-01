@@ -1,4 +1,4 @@
-package com.x695c.optimizer.ui.components
+package com.x695c.tuner.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*

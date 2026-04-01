@@ -1,4 +1,4 @@
-package com.x695c.optimizer.data
+package com.x695c.tuner.data
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,16 +8,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class OptimizerViewModel : ViewModel() {
+class TunerViewModel : ViewModel() {
 
-    private val _uiState = MutableStateFlow(OptimizerUiState())
-    val uiState: StateFlow<OptimizerUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(TunerUiState())
+    val uiState: StateFlow<TunerUiState> = _uiState.asStateFlow()
 
-    private val _selectedProfile = MutableStateFlow(OptimizationProfile.DEFAULT)
-    val selectedProfile: StateFlow<OptimizationProfile> = _selectedProfile.asStateFlow()
+    private val _selectedProfile = MutableStateFlow(TuningProfile.DEFAULT)
+    val selectedProfile: StateFlow<TuningProfile> = _selectedProfile.asStateFlow()
 
     private val _gameConfigs = MutableStateFlow(getDefaultGameConfigs())
-    val gameConfigs: StateFlow<Map<String, GameOptimizationConfig>> = _gameConfigs.asStateFlow()
+    val gameConfigs: StateFlow<Map<String, GameTuningConfig>> = _gameConfigs.asStateFlow()
 
     private val _scenarioConfigs = MutableStateFlow(getDefaultScenarioConfigs())
     val scenarioConfigs: StateFlow<Map<String, PerformanceScenarioConfig>> = _scenarioConfigs.asStateFlow()
@@ -34,20 +34,62 @@ class OptimizerViewModel : ViewModel() {
 
     init {
         // Log app start
-        ActivityLogger.log("App", "INIT", "X695C Vendor Optimizer started")
+        ActivityLogger.log("App", "INIT", "X695C Vendor Tuner started")
 
-        // Detect config files
-        detectConfigFiles()
+        // Detect and parse config files
+        detectAndLoadConfigs()
     }
 
-    private fun detectConfigFiles() {
+    private fun detectAndLoadConfigs() {
         viewModelScope.launch {
             ActivityLogger.log("FileDetection", "START", "Scanning for config files...")
+            
+            // Detect config files
             val configs = ConfigFileDetector.detectConfigs()
             _configAvailability.value = configs
 
             // Log summary
             ActivityLogger.log("FileDetection", "COMPLETE", ConfigFileDetector.getStatusSummary())
+
+            // Parse configs from device files
+            loadConfigsFromDevice()
+        }
+    }
+
+    private fun loadConfigsFromDevice() {
+        viewModelScope.launch {
+            // Try to parse game configs
+            val parsedGameConfigs = ConfigFileParser.parseGameConfigs()
+            if (parsedGameConfigs.isNotEmpty()) {
+                // Merge with defaults (parsed configs take precedence)
+                val mergedConfigs = getDefaultGameConfigs().toMutableMap()
+                mergedConfigs.putAll(parsedGameConfigs)
+                _gameConfigs.value = mergedConfigs
+                ActivityLogger.log("ConfigParser", "GAME_CONFIGS_LOADED", "Loaded ${parsedGameConfigs.size} game configs from device")
+            }
+
+            // Try to parse scenario configs
+            val parsedScenarioConfigs = ConfigFileParser.parseScenarioConfigs()
+            if (parsedScenarioConfigs.isNotEmpty()) {
+                val mergedConfigs = getDefaultScenarioConfigs().toMutableMap()
+                mergedConfigs.putAll(parsedScenarioConfigs)
+                _scenarioConfigs.value = mergedConfigs
+                ActivityLogger.log("ConfigParser", "SCENARIO_CONFIGS_LOADED", "Loaded ${parsedScenarioConfigs.size} scenario configs from device")
+            }
+
+            // Try to parse memory config
+            val parsedMemoryConfig = ConfigFileParser.parseMemoryConfig()
+            if (parsedMemoryConfig != null) {
+                _memoryConfig.value = parsedMemoryConfig
+                ActivityLogger.log("ConfigParser", "MEMORY_CONFIG_LOADED", "Loaded memory config from device")
+            }
+
+            // Try to parse GPU config
+            val parsedGpuConfig = ConfigFileParser.parseGpuConfig()
+            if (parsedGpuConfig != null) {
+                _gpuConfig.value = parsedGpuConfig
+                ActivityLogger.log("ConfigParser", "GPU_CONFIG_LOADED", "Loaded GPU config from device")
+            }
         }
     }
 
@@ -60,18 +102,18 @@ class OptimizerViewModel : ViewModel() {
         return status?.available == true && status.readable
     }
 
-    fun setProfile(profile: OptimizationProfile) {
+    fun setProfile(profile: TuningProfile) {
         val oldProfile = _selectedProfile.value
         _selectedProfile.value = profile
         ActivityLogger.logProfileChange(oldProfile.name, profile.name)
 
         when (profile) {
-            OptimizationProfile.DEFAULT -> loadDefaultProfile()
-            OptimizationProfile.POWER_SAVING -> loadPowerSavingProfile()
-            OptimizationProfile.BALANCED -> loadBalancedProfile()
-            OptimizationProfile.PERFORMANCE -> loadPerformanceProfile()
-            OptimizationProfile.GAMING -> loadGamingProfile()
-            OptimizationProfile.CUSTOM -> { /* Keep current settings */ }
+            TuningProfile.DEFAULT -> loadDefaultProfile()
+            TuningProfile.POWER_SAVING -> loadPowerSavingProfile()
+            TuningProfile.BALANCED -> loadBalancedProfile()
+            TuningProfile.PERFORMANCE -> loadPerformanceProfile()
+            TuningProfile.GAMING -> loadGamingProfile()
+            TuningProfile.CUSTOM -> { /* Keep current settings */ }
         }
     }
 
@@ -194,18 +236,18 @@ class OptimizerViewModel : ViewModel() {
         )
     }
 
-    fun updateGameConfig(packageName: String, config: GameOptimizationConfig) {
+    fun updateGameConfig(packageName: String, config: GameTuningConfig) {
         val oldConfig = _gameConfigs.value[packageName]
         _gameConfigs.update { configs ->
             configs.toMutableMap().apply {
                 this[packageName] = config
             }
         }
-        _selectedProfile.value = OptimizationProfile.CUSTOM
+        _selectedProfile.value = TuningProfile.CUSTOM
 
         if (oldConfig != null) {
             ActivityLogger.logConfigChange(
-                "GameOptimization",
+                "GameTuning",
                 "Game[$packageName]",
                 oldConfig.toString(),
                 config.toString()
@@ -220,7 +262,7 @@ class OptimizerViewModel : ViewModel() {
                 this[scenarioName] = config
             }
         }
-        _selectedProfile.value = OptimizationProfile.CUSTOM
+        _selectedProfile.value = TuningProfile.CUSTOM
 
         if (oldConfig != null) {
             ActivityLogger.logConfigChange(
@@ -235,7 +277,7 @@ class OptimizerViewModel : ViewModel() {
     fun updateMemoryConfig(config: MemoryManagementConfig) {
         val oldConfig = _memoryConfig.value
         _memoryConfig.value = config
-        _selectedProfile.value = OptimizationProfile.CUSTOM
+        _selectedProfile.value = TuningProfile.CUSTOM
 
         ActivityLogger.logConfigChange(
             "MemoryManagement",
@@ -248,7 +290,7 @@ class OptimizerViewModel : ViewModel() {
     fun updateGpuConfig(config: GpuDvfsConfig) {
         val oldConfig = _gpuConfig.value
         _gpuConfig.value = config
-        _selectedProfile.value = OptimizationProfile.CUSTOM
+        _selectedProfile.value = TuningProfile.CUSTOM
 
         ActivityLogger.logConfigChange(
             "GpuSettings",
@@ -259,7 +301,7 @@ class OptimizerViewModel : ViewModel() {
     }
 
     fun exportConfiguration(): String {
-        val config = FullOptimizationConfig(
+        val config = FullTuningConfig(
             profile = _selectedProfile.value,
             gameConfigs = _gameConfigs.value,
             scenarioConfigs = _scenarioConfigs.value,
@@ -280,10 +322,10 @@ class OptimizerViewModel : ViewModel() {
         ActivityLogger.log("App", "LOGS_CLEARED", "Activity log cleared by user")
     }
 
-    private fun buildXmlConfiguration(config: FullOptimizationConfig): String {
+    private fun buildXmlConfiguration(config: FullTuningConfig): String {
         val sb = StringBuilder()
         sb.appendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-        sb.appendLine("<!-- X695C Vendor Optimization Configuration -->")
+        sb.appendLine("<!-- X695C Vendor Tuning Configuration -->")
         sb.appendLine("<!-- Profile: ${config.profile.displayName} -->")
         sb.appendLine()
 
@@ -336,7 +378,7 @@ class OptimizerViewModel : ViewModel() {
     }
 }
 
-data class OptimizerUiState(
+data class TunerUiState(
     val isLoading: Boolean = false,
     val message: String? = null,
     val exportResult: String? = null

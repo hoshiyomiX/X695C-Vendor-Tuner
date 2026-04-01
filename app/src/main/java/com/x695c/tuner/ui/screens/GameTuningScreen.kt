@@ -1,4 +1,4 @@
-package com.x695c.optimizer.ui.screens
+package com.x695c.tuner.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,8 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.x695c.optimizer.data.*
-import com.x695c.optimizer.ui.components.*
+import com.x695c.tuner.data.*
+import com.x695c.tuner.ui.components.*
 
 private val gpuTimerOptions = listOf(
     1 to "1 (Most Aggressive)",
@@ -35,10 +35,10 @@ private val coldLaunchOptions = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GameOptimizationScreen(
+fun GameTuningScreen(
     packageName: String,
-    config: GameOptimizationConfig,
-    onConfigChange: (GameOptimizationConfig) -> Unit,
+    config: GameTuningConfig,
+    onConfigChange: (GameTuningConfig) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -48,7 +48,7 @@ fun GameOptimizationScreen(
             title = {
                 Column {
                     Text(
-                        text = "Game Optimization",
+                        text = "Game Tuning",
                         fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -94,7 +94,7 @@ fun GameOptimizationScreen(
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Game Optimization",
+                            text = "Game Tuning",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -227,7 +227,7 @@ fun GameOptimizationScreen(
                 optionDescription = { it.description }
             )
             DropdownSelector(
-                label = "Weak Signal Optimization",
+                label = "Weak Signal Tuning",
                 value = config.weakSignalOpt,
                 options = WeakSignalOpt.entries,
                 onValueChange = { onConfigChange(config.copy(weakSignalOpt = it)) },

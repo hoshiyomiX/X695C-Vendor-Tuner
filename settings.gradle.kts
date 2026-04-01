@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "X695C-Vendor-Optimizer"
+rootProject.name = "X695C-Vendor-Tuner"
 include(":app")

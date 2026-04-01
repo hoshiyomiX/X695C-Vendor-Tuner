@@ -1,4 +1,4 @@
-package com.x695c.optimizer.ui.screens
+package com.x695c.tuner.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,8 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.x695c.optimizer.data.*
-import com.x695c.optimizer.ui.components.*
+import com.x695c.tuner.data.*
+import com.x695c.tuner.ui.components.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

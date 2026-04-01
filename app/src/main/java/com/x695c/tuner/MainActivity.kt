@@ -1,4 +1,4 @@
-package com.x695c.optimizer
+package com.x695c.tuner
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -24,23 +24,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.x695c.optimizer.data.*
-import com.x695c.optimizer.ui.screens.*
+import com.x695c.tuner.data.*
+import com.x695c.tuner.ui.screens.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            X695COptimizerTheme {
-                OptimizerApp()
+            X695CTunerTheme {
+                TunerApp()
             }
         }
     }
 }
 
 @Composable
-fun X695COptimizerTheme(
+fun X695CTunerTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
@@ -109,8 +109,8 @@ sealed class Screen {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OptimizerApp(
-    viewModel: OptimizerViewModel = viewModel()
+fun TunerApp(
+    viewModel: TunerViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val selectedProfile by viewModel.selectedProfile.collectAsState()
@@ -209,7 +209,7 @@ fun OptimizerApp(
                 is Screen.GameDetail -> {
                     val config = gameConfigs[currentScreen.packageName]
                     if (config != null) {
-                        GameOptimizationScreen(
+                        GameTuningScreen(
                             packageName = currentScreen.packageName,
                             config = config,
                             onConfigChange = { viewModel.updateGameConfig(currentScreen.packageName, it) },
