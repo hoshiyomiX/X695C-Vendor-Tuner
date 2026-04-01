@@ -18,6 +18,7 @@ import com.x695c.optimizer.data.GameOptimizationConfig
 @Composable
 fun GameListScreen(
     gameConfigs: Map<String, GameOptimizationConfig>,
+    configAvailable: Boolean = false,
     onGameSelect: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -49,6 +50,33 @@ fun GameListScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
+                // Config status warning
+                if (!configAvailable) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Config file not detected. Settings are for reference only.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
                 Text(
                     text = "Select a game to configure optimization settings",
                     style = MaterialTheme.typography.bodyMedium,
@@ -61,7 +89,8 @@ fun GameListScreen(
                 val gameName = getGameName(packageName)
                 Card(
                     onClick = { onGameSelect(packageName) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = true // Always enabled for viewing
                 ) {
                     Row(
                         modifier = Modifier

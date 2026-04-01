@@ -19,6 +19,7 @@ import com.x695c.optimizer.data.PerformanceScenarioConfig
 @Composable
 fun ScenarioListScreen(
     scenarioConfigs: Map<String, PerformanceScenarioConfig>,
+    configAvailable: Boolean = false,
     onScenarioSelect: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -50,6 +51,33 @@ fun ScenarioListScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
+                // Config status warning
+                if (!configAvailable) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Config file not detected. Settings are for reference only.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
                 Text(
                     text = "Select a scenario to configure performance settings",
                     style = MaterialTheme.typography.bodyMedium,

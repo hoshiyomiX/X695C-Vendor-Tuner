@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,7 +16,6 @@ import com.x695c.optimizer.data.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Suppress("UNUSED_PARAMETER")
 fun MainDashboardScreen(
     selectedProfile: OptimizationProfile,
     onProfileChange: (OptimizationProfile) -> Unit,
@@ -23,11 +23,17 @@ fun MainDashboardScreen(
     scenarioConfigs: Map<String, PerformanceScenarioConfig>,
     memoryConfig: MemoryManagementConfig,
     gpuConfig: GpuDvfsConfig,
+    gameConfigAvailable: Boolean = false,
+    scenarioConfigAvailable: Boolean = false,
+    memoryConfigAvailable: Boolean = false,
+    gpuConfigAvailable: Boolean = false,
     onExport: () -> String,
     onNavigateToGames: () -> Unit,
     onNavigateToScenarios: () -> Unit,
     onNavigateToMemory: () -> Unit,
     onNavigateToGpu: () -> Unit,
+    onNavigateToLogs: () -> Unit,
+    onCopyLogs: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showExportDialog by remember { mutableStateOf(false) }
@@ -134,8 +140,44 @@ fun MainDashboardScreen(
         )
 
         // Game Optimization
+        ConfigCard(
+            title = "Game Optimization",
+            subtitle = "${gameConfigs.size} games configured",
+            icon = Icons.Default.VideogameAsset,
+            configAvailable = gameConfigAvailable,
+            onClick = onNavigateToGames
+        )
+
+        // Performance Scenarios
+        ConfigCard(
+            title = "Performance Scenarios",
+            subtitle = "${scenarioConfigs.size} scenarios configured",
+            icon = Icons.Default.Speed,
+            configAvailable = scenarioConfigAvailable,
+            onClick = onNavigateToScenarios
+        )
+
+        // Memory Management
+        ConfigCard(
+            title = "Memory Management",
+            subtitle = "RAM: 6GB Configuration",
+            icon = Icons.Default.Memory,
+            configAvailable = memoryConfigAvailable,
+            onClick = onNavigateToMemory
+        )
+
+        // GPU Settings
+        ConfigCard(
+            title = "GPU DVFS Settings",
+            subtitle = "Margin: ${gpuConfig.marginMode.description}",
+            icon = Icons.Default.Games,
+            configAvailable = gpuConfigAvailable,
+            onClick = onNavigateToGpu
+        )
+
+        // Activity Logs
         Card(
-            onClick = onNavigateToGames,
+            onClick = onNavigateToLogs,
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -145,7 +187,7 @@ fun MainDashboardScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.VideogameAsset,
+                    imageVector = Icons.Default.History,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp)
@@ -153,123 +195,12 @@ fun MainDashboardScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Game Optimization",
+                        text = "Activity Logs",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "${gameConfigs.size} games configured",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null
-                )
-            }
-        }
-
-        // Performance Scenarios
-        Card(
-            onClick = onNavigateToScenarios,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Speed,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Performance Scenarios",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${scenarioConfigs.size} scenarios configured",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null
-                )
-            }
-        }
-
-        // Memory Management
-        Card(
-            onClick = onNavigateToMemory,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Memory,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Memory Management",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "RAM: 6GB Configuration",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null
-                )
-            }
-        }
-
-        // GPU Settings
-        Card(
-            onClick = onNavigateToGpu,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Games,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "GPU DVFS Settings",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Margin: ${gpuConfig.marginMode.description}",
+                        text = "${com.x695c.optimizer.data.ActivityLogger.getLogsCount()} entries recorded",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -298,6 +229,20 @@ fun MainDashboardScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text("Export Configuration")
+        }
+
+        // Copy Logs Button
+        OutlinedButton(
+            onClick = onCopyLogs,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Copy Logs to Clipboard")
         }
 
         // Export Dialog
@@ -333,5 +278,61 @@ fun MainDashboardScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun ConfigCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    configAvailable: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (configAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (!configAvailable) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Config not available",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = if (configAvailable) subtitle else "Config file not detected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (configAvailable) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null
+            )
+        }
     }
 }
