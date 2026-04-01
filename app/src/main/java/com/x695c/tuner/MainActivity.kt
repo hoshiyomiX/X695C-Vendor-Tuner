@@ -294,7 +294,7 @@ fun RootRequestDialog(
         onDismissRequest = { if (!isRequesting) onDismiss() },
         icon = {
             Icon(
-                imageVector = androidx.compose.material.icons.Icons.Default.AdminPanelSettings,
+                imageVector = androidx.compose.material.icons.Icons.Default.Security,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.primary

@@ -109,7 +109,7 @@ fun MainDashboardScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AdminPanelSettings,
+                        imageVector = Icons.Default.Security,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -328,7 +328,7 @@ private fun RootStatusIndicator(
         rootState.isAvailable && !rootState.isGranted -> {
             IconButton(onClick = onRequestRoot) {
                 Icon(
-                    imageVector = Icons.Default.AdminPanelSettings,
+                    imageVector = Icons.Default.Security,
                     contentDescription = "Request Root",
                     tint = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.size(24.dp)
@@ -337,7 +337,7 @@ private fun RootStatusIndicator(
         }
         else -> {
             Icon(
-                imageVector = Icons.Default.NoCell,
+                imageVector = Icons.Default.Block,
                 contentDescription = "No Root",
                 tint = MaterialTheme.colorScheme.outlineVariant,
                 modifier = Modifier.size(20.dp)
