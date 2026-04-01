@@ -31,12 +31,16 @@ fun MainDashboardScreen(
     memoryConfigChanged: Boolean = false,
     gpuConfigChanged: Boolean = false,
     rootState: RootState = RootState(),
+    applyState: ApplyState = ApplyState(),
+    hasUnsavedChanges: Boolean = false,
     onNavigateToGames: () -> Unit,
     onNavigateToScenarios: () -> Unit,
     onNavigateToMemory: () -> Unit,
     onNavigateToGpu: () -> Unit,
     onCopyLogs: () -> Unit,
     onRequestRoot: () -> Unit,
+    onApplyConfiguration: () -> Unit,
+    onDismissApplyResult: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -83,7 +87,45 @@ fun MainDashboardScreen(
             }
         }
 
-        // Quick Actions Row - Copy Logs Button
+        // No Root Warning Banner
+        if (!rootState.isGranted && !rootState.isAvailable) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Root Access Required",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            text = "Configuration changes cannot be applied without root. The APK can only READ configs without root.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+        }
+
+        // Quick Actions Row - Copy Logs & Apply Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -102,20 +144,49 @@ fun MainDashboardScreen(
                 Text("Copy Logs")
             }
 
-            // Root Access Button (show if not granted)
-            if (!rootState.isGranted && !rootState.isAvailable) {
-                Button(
-                    onClick = onRequestRoot,
-                    modifier = Modifier.weight(1f)
-                ) {
+            // Apply Configuration Button
+            Button(
+                onClick = onApplyConfiguration,
+                enabled = hasUnsavedChanges && (rootState.isGranted || rootState.isAvailable),
+                modifier = Modifier.weight(1f)
+            ) {
+                if (applyState.isApplying) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
                     Icon(
-                        imageVector = Icons.Default.Lock,
+                        imageVector = Icons.Default.Save,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Request Root")
                 }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (applyState.isApplying) "Applying..." else "Apply")
+            }
+        }
+
+        // Unsaved Changes Indicator
+        if (hasUnsavedChanges) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Unsaved changes - Press Apply to write to system",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
             }
         }
 
@@ -300,6 +371,105 @@ fun MainDashboardScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    // Apply Result Dialog
+    if (applyState.showResultDialog && applyState.lastResult != null) {
+        ApplyResultDialog(
+            result = applyState.lastResult,
+            onDismiss = onDismissApplyResult
+        )
+    }
+}
+
+/**
+ * Dialog showing the result of configuration apply operation.
+ */
+@Composable
+private fun ApplyResultDialog(
+    result: ApplyResult,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = if (result.success) Icons.Default.CheckCircle else Icons.Default.Error,
+                contentDescription = null,
+                tint = if (result.success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                text = if (result.success) "Success" else "Apply Failed",
+                style = MaterialTheme.typography.headlineSmall
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Configuration write results:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                ResultRow("Game Config", result.gameConfigWritten)
+                ResultRow("Scenario Config", result.scenarioConfigWritten)
+                ResultRow("Memory Config", result.memoryConfigWritten)
+                ResultRow("GPU Config", result.gpuConfigWritten)
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${result.successCount}/${result.totalConfigs} configs written successfully",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                if (result.errorMessages.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Errors:",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    result.errorMessages.forEach { error ->
+                        Text(
+                            text = "• $error",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        }
+    )
+}
+
+@Composable
+private fun ResultRow(name: String, success: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 2.dp)
+    ) {
+        Icon(
+            imageVector = if (success) Icons.Default.Check else Icons.Default.Close,
+            contentDescription = null,
+            tint = if (success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = name,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 

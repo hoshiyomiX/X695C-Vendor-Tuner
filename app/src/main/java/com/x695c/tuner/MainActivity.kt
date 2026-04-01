@@ -114,6 +114,8 @@ fun TunerApp(
     val configAvailability by viewModel.configAvailability.collectAsState()
     val rootState by viewModel.rootState.collectAsState()
     val configChangeStatus by viewModel.configChangeStatus.collectAsState()
+    val applyState by viewModel.applyState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
     val context = LocalContext.current
 
@@ -215,12 +217,16 @@ fun TunerApp(
                     memoryConfigChanged = memoryConfigChanged,
                     gpuConfigChanged = gpuConfigChanged,
                     rootState = rootState,
+                    applyState = applyState,
+                    hasUnsavedChanges = uiState.hasUnsavedChanges,
                     onNavigateToGames = { navigateTo(Screen.Games) },
                     onNavigateToScenarios = { navigateTo(Screen.Scenarios) },
                     onNavigateToMemory = { navigateTo(Screen.Memory) },
                     onNavigateToGpu = { navigateTo(Screen.Gpu) },
                     onCopyLogs = { copyLogsToClipboard() },
-                    onRequestRoot = { showRootDialog = true }
+                    onRequestRoot = { showRootDialog = true },
+                    onApplyConfiguration = { viewModel.applyConfiguration() },
+                    onDismissApplyResult = { viewModel.dismissApplyResult() }
                 )
 
                 is Screen.Games -> GameListScreen(

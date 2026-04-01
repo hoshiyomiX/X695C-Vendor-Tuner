@@ -40,6 +40,10 @@ class TunerViewModel : ViewModel() {
     private val _configChangeStatus = MutableStateFlow<Map<ConfigFileDetector.ConfigType, ConfigChangeTracker.ChangeStatus>>(emptyMap())
     val configChangeStatus: StateFlow<Map<ConfigFileDetector.ConfigType, ConfigChangeTracker.ChangeStatus>> = _configChangeStatus.asStateFlow()
 
+    // Apply state for writing configurations
+    private val _applyState = MutableStateFlow(ApplyState())
+    val applyState: StateFlow<ApplyState> = _applyState.asStateFlow()
+
     init {
         // Log app start
         ActivityLogger.log("App", "INIT", "X695C Vendor Tuner started")
@@ -245,6 +249,9 @@ class TunerViewModel : ViewModel() {
             TuningProfile.GAMING -> loadGamingProfile()
             TuningProfile.CUSTOM -> { /* Keep current settings */ }
         }
+
+        // Mark as having unsaved changes (require apply to write)
+        _uiState.value = _uiState.value.copy(hasUnsavedChanges = true)
     }
 
     private fun loadDefaultProfile() {
@@ -374,6 +381,7 @@ class TunerViewModel : ViewModel() {
             }
         }
         _selectedProfile.value = TuningProfile.CUSTOM
+        _uiState.value = _uiState.value.copy(hasUnsavedChanges = true)
 
         if (oldConfig != null) {
             ActivityLogger.logConfigChange(
@@ -393,6 +401,7 @@ class TunerViewModel : ViewModel() {
             }
         }
         _selectedProfile.value = TuningProfile.CUSTOM
+        _uiState.value = _uiState.value.copy(hasUnsavedChanges = true)
 
         if (oldConfig != null) {
             ActivityLogger.logConfigChange(
@@ -408,6 +417,7 @@ class TunerViewModel : ViewModel() {
         val oldConfig = _memoryConfig.value
         _memoryConfig.value = config
         _selectedProfile.value = TuningProfile.CUSTOM
+        _uiState.value = _uiState.value.copy(hasUnsavedChanges = true)
 
         ActivityLogger.logConfigChange(
             "MemoryManagement",
@@ -421,6 +431,7 @@ class TunerViewModel : ViewModel() {
         val oldConfig = _gpuConfig.value
         _gpuConfig.value = config
         _selectedProfile.value = TuningProfile.CUSTOM
+        _uiState.value = _uiState.value.copy(hasUnsavedChanges = true)
 
         ActivityLogger.logConfigChange(
             "GpuSettings",
@@ -446,14 +457,123 @@ class TunerViewModel : ViewModel() {
             }
         }
         _selectedProfile.value = TuningProfile.CUSTOM
+        _uiState.value = _uiState.value.copy(hasUnsavedChanges = true)
         
         ActivityLogger.log("GameTuning", "ADD_GAME", "Added custom game: $packageName")
     }
+
+    // ==================== CONFIGURATION APPLY METHODS ====================
+
+    /**
+     * Check if root is available and granted.
+     * Returns true if the app can write to system files.
+     */
+    fun canWriteConfigs(): Boolean {
+        return _rootState.value.isGranted || RootChecker.isRootAvailable()
+    }
+
+    /**
+     * Apply all current configurations to the system.
+     * REQUIRES ROOT ACCESS!
+     * 
+     * This will write to:
+     * - /vendor/etc/power_app_cfg.xml (game configs)
+     * - /vendor/etc/powerscntbl.xml (scenario configs)
+     * - /vendor/etc/policy_config_6g_ram.json (memory config)
+     * - /vendor/etc/gpu_dvfs_setting.xml (GPU config)
+     */
+    fun applyConfiguration() {
+        // Check root access first
+        if (!canWriteConfigs()) {
+            ActivityLogger.logError("ConfigApply", "Cannot apply: Root access required")
+            _applyState.value = ApplyState(
+                isApplying = false,
+                lastResult = ApplyResult(
+                    success = false,
+                    errorMessages = listOf("Root access required to modify system files")
+                ),
+                showResultDialog = true
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _applyState.value = _applyState.value.copy(isApplying = true)
+            ActivityLogger.log("ConfigApply", "START", "Applying configuration changes...")
+
+            try {
+                // Write all configs using ConfigWriter
+                val results = ConfigWriter.writeAllConfigs(
+                    gameConfigs = _gameConfigs.value,
+                    scenarioConfigs = _scenarioConfigs.value,
+                    memoryConfig = _memoryConfig.value,
+                    gpuConfig = _gpuConfig.value
+                )
+
+                // Process results
+                val gameResult = results.find { it.configName == "game_cfg" }
+                val scenarioResult = results.find { it.configName == "scenario_cfg" }
+                val memoryResult = results.find { it.configName == "mem_cfg" }
+                val gpuResult = results.find { it.configName == "gpu_cfg" }
+
+                val errors = results.filter { !it.success }.mapNotNull { it.errorMessage }
+                val success = results.all { it.success }
+
+                val applyResult = ApplyResult(
+                    success = success,
+                    gameConfigWritten = gameResult?.success ?: false,
+                    scenarioConfigWritten = scenarioResult?.success ?: false,
+                    memoryConfigWritten = memoryResult?.success ?: false,
+                    gpuConfigWritten = gpuResult?.success ?: false,
+                    errorMessages = errors
+                )
+
+                if (success) {
+                    ActivityLogger.log("ConfigApply", "SUCCESS", "All configurations applied successfully")
+                    // Update change tracking baseline
+                    saveCurrentConfigStatesAsKnown()
+                    // Clear unsaved changes flag
+                    _uiState.value = _uiState.value.copy(hasUnsavedChanges = false)
+                } else {
+                    ActivityLogger.logError("ConfigApply", "Apply failed: ${errors.joinToString(", ")}")
+                }
+
+                _applyState.value = ApplyState(
+                    isApplying = false,
+                    lastResult = applyResult,
+                    showResultDialog = true
+                )
+            } catch (e: Exception) {
+                ActivityLogger.logError("ConfigApply", "Exception during apply: ${e.message}")
+                _applyState.value = ApplyState(
+                    isApplying = false,
+                    lastResult = ApplyResult(
+                        success = false,
+                        errorMessages = listOf(e.message ?: "Unknown error")
+                    ),
+                    showResultDialog = true
+                )
+            }
+        }
+    }
+
+    /**
+     * Dismiss the apply result dialog.
+     */
+    fun dismissApplyResult() {
+        _applyState.value = _applyState.value.copy(showResultDialog = false)
+    }
+
+    /**
+     * Check if there are unsaved configuration changes.
+     */
+    fun hasUnsavedChanges(): Boolean = _uiState.value.hasUnsavedChanges
 }
 
 data class TunerUiState(
     val isLoading: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    val hasUnsavedChanges: Boolean = false
 )
 
 /**
@@ -465,3 +585,31 @@ data class RootState(
     val isGranted: Boolean = false,         // Root has been granted
     val isRequesting: Boolean = false       // Currently requesting root
 )
+
+/**
+ * State for configuration apply operations
+ */
+data class ApplyState(
+    val isApplying: Boolean = false,
+    val lastResult: ApplyResult? = null,
+    val showResultDialog: Boolean = false
+)
+
+/**
+ * Result of an apply operation
+ */
+data class ApplyResult(
+    val success: Boolean,
+    val gameConfigWritten: Boolean = false,
+    val scenarioConfigWritten: Boolean = false,
+    val memoryConfigWritten: Boolean = false,
+    val gpuConfigWritten: Boolean = false,
+    val errorMessages: List<String> = emptyList()
+) {
+    val successCount: Int
+        get() = listOf(gameConfigWritten, scenarioConfigWritten, memoryConfigWritten, gpuConfigWritten)
+            .count { it }
+
+    val totalConfigs: Int
+        get() = 4
+}
