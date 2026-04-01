@@ -109,7 +109,7 @@ fun MainDashboardScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Security,
+                        imageVector = Icons.Default.Lock,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )

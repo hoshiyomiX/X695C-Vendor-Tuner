@@ -10,11 +10,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.x695c.tuner.data.*
 import com.x695c.tuner.ui.screens.*
@@ -294,7 +297,7 @@ fun RootRequestDialog(
         onDismissRequest = { if (!isRequesting) onDismiss() },
         icon = {
             Icon(
-                imageVector = androidx.compose.material.icons.Icons.Default.Security,
+                imageVector = Icons.Default.Lock,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.primary
