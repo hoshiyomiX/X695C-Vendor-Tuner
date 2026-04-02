@@ -14,7 +14,18 @@ object VendorPaths {
 
     val gameConfigPaths: List<String> get() = listOf(GAME_CONFIG_PATH)
     val scenarioConfigPaths: List<String> get() = listOf(SCENARIO_CONFIG_PATH)
-    val memoryConfigPaths: List<String> get() = listOf(MEMORY_CONFIG_PATH)
+
+    /**
+     * Memory config paths: try 6GB first (X695C), then fall back to other RAM variants.
+     * The actual file present depends on the device's RAM configuration.
+     */
+    val memoryConfigPaths: List<String> get() = listOf(
+        "/vendor/etc/performance/policy_config_6g_ram.json",
+        "/vendor/etc/performance/policy_config_8g_ram.json",
+        "/vendor/etc/performance/policy_config_4g_ram.json",
+        "/vendor/etc/performance/policy_config_3g_ram.json",
+        "/vendor/etc/performance/policy_config_2g_ram.json"
+    )
 
     /** Obfuscate vendor paths for secure logging. */
     fun obfuscatePath(path: String): String = when {
