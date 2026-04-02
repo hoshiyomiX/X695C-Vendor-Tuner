@@ -193,6 +193,8 @@ fun TunerApp(
                     onApplyConfiguration = { viewModel.applyConfiguration() },
                     onDismissApplyResult = { viewModel.dismissApplyResult() },
                     onRebootDevice = { viewModel.rebootDevice() },
+                    onRequestReboot = { viewModel.requestReboot() },
+                    onCancelReboot = { viewModel.cancelReboot() },
                     onConfirmDefaultReset = { viewModel.confirmDefaultReset() },
                     onCancelDefaultReset = { viewModel.cancelDefaultReset() },
                     // FLOW-H006: Wire up root request flow (was dead code — onRequestRoot defaulted to {})

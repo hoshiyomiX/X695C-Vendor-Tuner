@@ -38,6 +38,8 @@ fun MainDashboardScreen(
     onApplyConfiguration: () -> Unit,
     onDismissApplyResult: () -> Unit,
     onRebootDevice: () -> Unit = {},
+    onRequestReboot: () -> Unit = {},
+    onCancelReboot: () -> Unit = {},
     onConfirmDefaultReset: () -> Unit = {},
     onCancelDefaultReset: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -408,11 +410,46 @@ fun MainDashboardScreen(
             },
             confirmButton = {}
         )
+    } else if (applyState.showRebootConfirmation) {
+        // Reboot confirmation dialog — prevents accidental reboot
+        AlertDialog(
+            onDismissRequest = onCancelReboot,
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.PowerSettingsNew,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(48.dp)
+                )
+            },
+            title = { Text("Reboot Now?") },
+            text = {
+                Text(
+                    text = "A reboot is required for the new configuration to take full effect. The device will restart immediately.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                FilledTonalButton(onClick = onRebootDevice) {
+                    Icon(
+                        imageVector = Icons.Default.PowerSettingsNew,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Reboot")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = onCancelReboot) { Text("Later") }
+            }
+        )
     } else if (applyState.showResultDialog && applyState.lastResult != null) {
         ApplyResultDialog(
             result = applyState.lastResult,
             onDismiss = onDismissApplyResult,
-            onReboot = onRebootDevice
+            onReboot = onRequestReboot
         )
     }
 }
@@ -438,7 +475,7 @@ private fun ApplyResultDialog(
         },
         title = {
             Text(
-                text = if (result.success) "Success" else "Apply Failed",
+                text = if (result.success) "Applied Successfully" else "Apply Failed",
                 style = MaterialTheme.typography.headlineSmall
             )
         },
@@ -495,23 +532,44 @@ private fun ApplyResultDialog(
                         )
                     }
                 }
+
+                if (result.success) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PowerSettingsNew,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Reboot recommended for changes to take effect",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (result.success) {
-                    TextButton(onClick = onReboot) {
+                    FilledTonalButton(onClick = onReboot) {
                         Icon(
                             imageVector = Icons.Default.PowerSettingsNew,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Reboot")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Reboot Now")
                     }
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("OK")
+                    Text("Later")
                 }
             }
         }

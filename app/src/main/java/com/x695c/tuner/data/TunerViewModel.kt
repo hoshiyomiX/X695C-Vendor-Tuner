@@ -623,7 +623,22 @@ class TunerViewModel : ViewModel() {
     }
 
     fun dismissApplyResult() {
-        _applyState.value = _applyState.value.copy(showResultDialog = false)
+        _applyState.value = _applyState.value.copy(showResultDialog = false, showRebootConfirmation = false)
+    }
+
+    /**
+     * Request reboot confirmation dialog before actual reboot.
+     * Shown after successful apply to prevent accidental reboot.
+     */
+    fun requestReboot() {
+        _applyState.value = _applyState.value.copy(showRebootConfirmation = true)
+        ActivityLogger.log("Device", "REBOOT_REQUESTED", "User initiated reboot from apply result")
+    }
+
+    /** Cancel reboot confirmation dialog. */
+    fun cancelReboot() {
+        _applyState.value = _applyState.value.copy(showRebootConfirmation = false)
+        ActivityLogger.log("Device", "REBOOT_CANCELLED", "User cancelled reboot")
     }
 
     /**
@@ -680,6 +695,7 @@ data class ApplyState(
     val isApplying: Boolean = false,
     val lastResult: ApplyResult? = null,
     val showResultDialog: Boolean = false,
+    val showRebootConfirmation: Boolean = false,
     val isRebooting: Boolean = false
 )
 
