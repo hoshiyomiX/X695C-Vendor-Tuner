@@ -3,8 +3,10 @@ package com.x695c.tuner.data
 import android.util.Xml
 import org.json.JSONObject
 import org.xmlpull.v1.XmlPullParser
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.StringReader
+import java.util.zip.GZIPInputStream
 
 /**
  * Parses XML and JSON config files from the vendor partition.
@@ -17,6 +19,11 @@ import java.io.StringReader
  * XmlPullParser is a streaming parser that skips DTD processing entirely,
  * making it immune to both XXE attacks and DOCTYPE rejection.
  *
+ * Supports multiple vendor file formats:
+ * - Plain text XML/JSON (most common)
+ * - Gzip-compressed XML/JSON (common on Infinix/MediaTek firmware)
+ * - Android Binary XML (compiled XML, auto-detected via InputStream)
+ *
  * Reference: https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing
  */
 object ConfigFileParser {
@@ -26,14 +33,14 @@ object ConfigFileParser {
     private val memoryConfigPaths = VendorPaths.memoryConfigPaths
 
     fun parseGameConfigs(): Map<String, GameTuningConfig> {
-        val content = findReadableFile(gameConfigPaths)
-        if (content == null) {
+        val file = findReadableFile(gameConfigPaths)
+        if (file == null) {
             ActivityLogger.log("ConfigParser", "GAME_CONFIG", "No readable game config file found")
             return emptyMap()
         }
         return try {
             val configs = mutableMapOf<String, GameTuningConfig>()
-            val parser = createXmlPullParser(content)
+            val parser = createXmlParserFromFile(file)
             var currentPackage: String? = null
             var currentActivity = false
             val rawParams = mutableMapOf<String, Int>()
@@ -102,14 +109,14 @@ object ConfigFileParser {
     }
 
     fun parseScenarioConfigs(): Map<String, PerformanceScenarioConfig> {
-        val content = findReadableFile(scenarioConfigPaths)
-        if (content == null) {
+        val file = findReadableFile(scenarioConfigPaths)
+        if (file == null) {
             ActivityLogger.log("ConfigParser", "SCENARIO_CONFIG", "No readable scenario config file found")
             return emptyMap()
         }
         return try {
             val configs = mutableMapOf<String, PerformanceScenarioConfig>()
-            val parser = createXmlPullParser(content)
+            val parser = createXmlParserFromFile(file)
             var scenarioName: String? = null
             val rawParams = mutableMapOf<String, Int>()
             var config = PerformanceScenarioConfig(scenarioName = "")
@@ -160,12 +167,13 @@ object ConfigFileParser {
     }
 
     fun parseMemoryConfig(): MemoryManagementConfig? {
-        val content = findReadableFile(memoryConfigPaths)
-        if (content == null) {
+        val file = findReadableFile(memoryConfigPaths)
+        if (file == null) {
             ActivityLogger.log("ConfigParser", "MEMORY_CONFIG", "No readable memory config file found")
             return null
         }
         return try {
+            val content = readDecodedText(file)
             val json = JSONObject(content)
             val config = parseMemoryJsonConfig(json)
             ActivityLogger.log("ConfigParser", "MEMORY_CONFIG", "Successfully parsed memory configuration")
@@ -178,14 +186,69 @@ object ConfigFileParser {
 
     // ==================== PRIVATE HELPER METHODS ====================
 
-    private fun findReadableFile(paths: List<String>): String? {
+    /**
+     * Find the first readable file from a list of candidate paths.
+     * Returns the File object (not content) so the caller can choose
+     * the appropriate decoding method (text, gzip, or binary XML).
+     */
+    private fun findReadableFile(paths: List<String>): File? {
         for (path in paths) {
             val file = File(path)
             if (file.exists() && file.canRead()) {
-                return file.readText()
+                return file
             }
         }
         return null
+    }
+
+    /**
+     * Create an XmlPullParser from a File, auto-detecting the format:
+     * 1. Gzip-compressed XML (magic bytes 0x1F 0x8B) → decompress first
+     * 2. Android Binary XML (magic 0x03 0x00 0x08 0x00) → use InputStream (native support)
+     * 3. Plain text XML → parse directly
+     */
+    private fun createXmlParserFromFile(file: File): XmlPullParser {
+        val bytes = file.readBytes()
+
+        // Gzip compressed (magic: 0x1F 0x8B)
+        if (bytes.size >= 2 && bytes[0] == 0x1F.toByte() && bytes[1] == 0x8B.toByte()) {
+            ActivityLogger.log("ConfigParser", "FILE_DECODE", "Gzip compression detected, decompressing")
+            val text = GZIPInputStream(ByteArrayInputStream(bytes))
+                .bufferedReader(Charsets.UTF_8).readText()
+            return createXmlPullParser(text)
+        }
+
+        // Android Binary XML (compiled XML, magic: 0x03 0x00 0x08 0x00)
+        if (bytes.size >= 4 && bytes[0] == 0x03.toByte() && bytes[1] == 0x00.toByte()
+            && bytes[2] == 0x08.toByte() && bytes[3] == 0x00.toByte()
+        ) {
+            ActivityLogger.log("ConfigParser", "FILE_DECODE", "Android Binary XML detected, using native parser")
+            val parser = Xml.newPullParser()
+            parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
+            parser.setInput(ByteArrayInputStream(bytes), null)
+            return parser
+        }
+
+        // Plain text XML
+        return createXmlPullParser(String(bytes, Charsets.UTF_8))
+    }
+
+    /**
+     * Read a file and return its text content, auto-detecting gzip compression.
+     * Used for JSON config files which are always text (never binary XML).
+     */
+    private fun readDecodedText(file: File): String {
+        val bytes = file.readBytes()
+
+        // Gzip compressed (magic: 0x1F 0x8B)
+        if (bytes.size >= 2 && bytes[0] == 0x1F.toByte() && bytes[1] == 0x8B.toByte()) {
+            ActivityLogger.log("ConfigParser", "FILE_DECODE", "Gzip compression detected, decompressing")
+            return GZIPInputStream(ByteArrayInputStream(bytes))
+                .bufferedReader(Charsets.UTF_8).readText()
+        }
+
+        // Plain text
+        return String(bytes, Charsets.UTF_8)
     }
 
     /**

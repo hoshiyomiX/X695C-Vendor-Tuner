@@ -1,7 +1,9 @@
 package com.x695c.tuner.data
 
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.zip.GZIPInputStream
 
 /**
  * Detects and reads vendor configuration files from the device.
@@ -76,7 +78,14 @@ object ConfigFileDetector {
             val file = File(path)
             if (file.exists() && file.canRead()) {
                 return try {
-                    file.readText()
+                    val bytes = file.readBytes()
+                    // Gzip compressed (magic: 0x1F 0x8B)
+                    if (bytes.size >= 2 && bytes[0] == 0x1F.toByte() && bytes[1] == 0x8B.toByte()) {
+                        GZIPInputStream(ByteArrayInputStream(bytes))
+                            .bufferedReader(Charsets.UTF_8).readText()
+                    } else {
+                        String(bytes, Charsets.UTF_8)
+                    }
                 } catch (e: Exception) {
                     ActivityLogger.logError("ConfigFileDetector", "Failed to read config: ${e.message}")
                     null
