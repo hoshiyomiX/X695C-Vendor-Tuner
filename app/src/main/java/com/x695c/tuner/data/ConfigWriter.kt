@@ -312,14 +312,14 @@ object ConfigWriter {
 
     private fun buildGameConfigXml(configs: Map<String, GameTuningConfig>): String {
         val sb = StringBuilder()
-        sb.appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
+        sb.appendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         sb.appendLine("<WHITELIST>")
 
         configs.forEach { (packageName, config) ->
             // Use xmlEscape for all user-provided/package strings
             val safeName = xmlEscape(packageName)
             sb.appendLine("  <Package name=\"$safeName\">")
-            sb.appendLine("    <Activity name=\"Common\">")
+            sb.appendLine("    <Activity name=\"${xmlEscape(config.activityName)}\">")
 
             // FLOW-C001 fix: use rawParams to preserve original vendor values
             // Thermal policy
@@ -405,7 +405,7 @@ object ConfigWriter {
 
     private fun buildScenarioConfigXml(configs: Map<String, PerformanceScenarioConfig>): String {
         val sb = StringBuilder()
-        sb.appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
+        sb.appendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         sb.appendLine("<SCNTABLE>")
 
         configs.forEach { (_, config) ->
@@ -429,8 +429,11 @@ object ConfigWriter {
                 val schedVal = config.rawParams["PERF_RES_SCHED_BOOST"] ?: config.schedBoost.value
                 sb.appendLine("    <data cmd=\"PERF_RES_SCHED_BOOST\" param1=\"$schedVal\"></data>")
             }
-            val touchOppVal = config.rawParams["PERF_RES_FPS_FBT_TOUCH_BOOST_OPP"] ?: config.touchBoostOpp.value
-            sb.appendLine("    <data cmd=\"PERF_RES_FPS_FBT_TOUCH_BOOST_OPP\" param1=\"$touchOppVal\"></data>")
+            // Touch boost OPP — only emit if present in original vendor data
+            if (config.rawParams.containsKey("PERF_RES_FPS_FBT_TOUCH_BOOST_OPP") || config.touchBoostOpp != TouchBoostOpp.STANDARD) {
+                val touchOppVal = config.rawParams["PERF_RES_FPS_FBT_TOUCH_BOOST_OPP"] ?: config.touchBoostOpp.value
+                sb.appendLine("    <data cmd=\"PERF_RES_FPS_FBT_TOUCH_BOOST_OPP\" param1=\"$touchOppVal\"></data>")
+            }
             if (config.touchBoostDuration != 0L) {
                 sb.appendLine("    <data cmd=\"PERF_RES_FPS_FBT_TOUCH_BOOST_DURATION\" param1=\"${config.touchBoostDuration}\"></data>")
             }

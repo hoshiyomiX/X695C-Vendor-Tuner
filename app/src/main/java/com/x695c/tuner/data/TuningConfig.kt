@@ -176,6 +176,7 @@ enum class WeakSignalOpt(val value: Int, val description: String) {
  */
 data class GameTuningConfig(
     val packageName: String,
+    val activityName: String = "Common",
     val thermalPolicy: ThermalPolicy = ThermalPolicy.DEFAULT,
     val gpuMarginMode: GpuMarginMode = GpuMarginMode.BALANCED,
     val gpuTimerDvfsMargin: Int = 10,

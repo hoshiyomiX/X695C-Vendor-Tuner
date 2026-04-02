@@ -60,6 +60,8 @@ object ConfigFileParser {
                         }
                         "Activity" -> {
                             currentActivity = true
+                            val actName = parser.getAttributeValue(null, "name") ?: "Common"
+                            config = config.copy(activityName = actName)
                         }
                         "data" -> {
                             val cmd = parser.getAttributeValue(null, "cmd") ?: ""
