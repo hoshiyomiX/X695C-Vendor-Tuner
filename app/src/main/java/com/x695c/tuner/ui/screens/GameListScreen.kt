@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.x695c.tuner.data.GameTuningConfig
+import com.x695c.tuner.data.HardcodedDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,6 +23,7 @@ fun GameListScreen(
     hasModifiedConfigs: Boolean = false,
     onGameSelect: (String) -> Unit,
     onAddGame: (String) -> Unit,
+    onRemoveGame: (String) -> Unit = {},
     onRestoreAll: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -160,6 +162,34 @@ fun GameListScreen(
                                         )
                                     },
                                     modifier = Modifier.height(24.dp)
+                                )
+                            }
+                        }
+                        // Delete button for custom games
+                        if (!HardcodedDefaults.isLoaded() || HardcodedDefaults.getGameDefault(packageName) == null) {
+                            var showDeleteDialog by remember { mutableStateOf(false) }
+                            if (showDeleteDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showDeleteDialog = false },
+                                    icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                                    title = { Text("Remove Game") },
+                                    text = { Text("Remove $packageName from the game list?") },
+                                    confirmButton = {
+                                        FilledTonalButton(onClick = {
+                                            showDeleteDialog = false
+                                            onRemoveGame(packageName)
+                                        }) { Text("Remove") }
+                                    },
+                                    dismissButton = {
+                                        OutlinedButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+                                    }
+                                )
+                            }
+                            IconButton(onClick = { showDeleteDialog = true }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Remove game",
+                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
                                 )
                             }
                         }

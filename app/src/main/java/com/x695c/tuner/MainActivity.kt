@@ -185,6 +185,7 @@ fun TunerApp(
                     rootState = rootState,
                     applyState = applyState,
                     hasUnsavedChanges = uiState.hasUnsavedChanges,
+                    needsConfirmationReset = uiState.needsConfirmationReset,
                     onNavigateToGames = { navigateTo(Screen.Games) },
                     onNavigateToScenarios = { navigateTo(Screen.Scenarios) },
                     onNavigateToMemory = { navigateTo(Screen.Memory) },
@@ -192,6 +193,8 @@ fun TunerApp(
                     onApplyConfiguration = { viewModel.applyConfiguration() },
                     onDismissApplyResult = { viewModel.dismissApplyResult() },
                     onRebootDevice = { viewModel.rebootDevice() },
+                    onConfirmDefaultReset = { viewModel.confirmDefaultReset() },
+                    onCancelDefaultReset = { viewModel.cancelDefaultReset() },
                     // FLOW-H006: Wire up root request flow (was dead code — onRequestRoot defaulted to {})
                     onRequestRoot = { viewModel.requestRootAccess() }
                 )
@@ -202,6 +205,7 @@ fun TunerApp(
                     hasModifiedConfigs = viewModel.hasAnyGameConfigModified(),
                     onGameSelect = { navigateTo(Screen.GameDetail(it)) },
                     onAddGame = { packageName -> viewModel.addCustomGame(packageName) },
+                    onRemoveGame = { packageName -> viewModel.removeGame(packageName) },
                     onRestoreAll = { viewModel.restoreAllGameConfigs() },
                     onBack = { navigateBack() }
                 )

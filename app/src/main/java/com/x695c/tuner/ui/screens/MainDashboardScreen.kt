@@ -29,6 +29,7 @@ fun MainDashboardScreen(
     rootState: RootState = RootState(),
     applyState: ApplyState = ApplyState(),
     hasUnsavedChanges: Boolean = false,
+    needsConfirmationReset: Boolean = false,
     onNavigateToGames: () -> Unit,
     onNavigateToScenarios: () -> Unit,
     onNavigateToMemory: () -> Unit,
@@ -37,6 +38,8 @@ fun MainDashboardScreen(
     onApplyConfiguration: () -> Unit,
     onDismissApplyResult: () -> Unit,
     onRebootDevice: () -> Unit = {},
+    onConfirmDefaultReset: () -> Unit = {},
+    onCancelDefaultReset: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -360,8 +363,52 @@ fun MainDashboardScreen(
         Spacer(modifier = Modifier.height(24.dp))
     }
 
-    // Apply Result Dialog
-    if (applyState.showResultDialog && applyState.lastResult != null) {
+    // DEFAULT profile reset confirmation dialog
+    if (needsConfirmationReset) {
+        AlertDialog(
+            onDismissRequest = onCancelDefaultReset,
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("Reset to Default?") },
+            text = {
+                Text("Reload all configurations from the device's current vendor files? Your unsaved changes will be lost.")
+            },
+            confirmButton = {
+                FilledTonalButton(onClick = onConfirmDefaultReset) { Text("Reload") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = onCancelDefaultReset) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Apply Result Dialog / Reboot in progress
+    if (applyState.isRebooting) {
+        AlertDialog(
+            onDismissRequest = {},
+            icon = {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(48.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 3.dp
+                )
+            },
+            title = { Text("Rebooting…") },
+            text = {
+                Text(
+                    text = "Device is rebooting. The app will close and reload after reboot.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {}
+        )
+    } else if (applyState.showResultDialog && applyState.lastResult != null) {
         ApplyResultDialog(
             result = applyState.lastResult,
             onDismiss = onDismissApplyResult,
@@ -590,7 +637,6 @@ private fun RootStatusIndicator(
     }
 }
 
-@Composable
 private fun buildChangedConfigsText(
     gameChanged: Boolean,
     scenarioChanged: Boolean,

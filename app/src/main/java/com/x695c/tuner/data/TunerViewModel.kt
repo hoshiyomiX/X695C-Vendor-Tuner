@@ -544,9 +544,7 @@ class TunerViewModel : ViewModel() {
     fun reloadFromDevice() {
         ActivityLogger.log("Profile", "RELOAD", "Reloading all configs from device")
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
             loadConfigsFromDevice()
-            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
@@ -631,16 +629,31 @@ class TunerViewModel : ViewModel() {
     /**
      * Reboot the device using root privileges.
      * Called after applying new preset so the system reloads vendor configs.
+     * Consumes stdout/stderr on background threads to prevent process hang.
      */
     fun rebootDevice() {
         viewModelScope.launch {
             try {
+                _applyState.value = _applyState.value.copy(isRebooting = true)
                 ActivityLogger.log("Device", "REBOOT", "User requested device reboot")
-                val processBuilder = ProcessBuilder("su", "-c", "reboot")
-                processBuilder.start()
-                // If we reach here, reboot command was sent successfully
-                // Device will reboot — app won't continue
+                val process = ProcessBuilder("su", "-c", "reboot").start()
+                // Drain streams on background threads to prevent deadlock
+                val stdoutThread = Thread {
+                    try { process.inputStream.bufferedReader().readText() } catch (_: Exception) {}
+                }
+                val stderrThread = Thread {
+                    try { process.errorStream.bufferedReader().readText() } catch (_: Exception) {}
+                }
+                stdoutThread.start()
+                stderrThread.start()
+                stdoutThread.join(5000)
+                stderrThread.join(5000)
+                process.waitFor()
+                // If we reach here, reboot didn't happen (root denied or failed)
+                _applyState.value = _applyState.value.copy(isRebooting = false)
+                ActivityLogger.logError("Device", "Reboot did not execute — root may have been denied")
             } catch (e: Exception) {
+                _applyState.value = _applyState.value.copy(isRebooting = false)
                 ActivityLogger.logError("Device", "Reboot failed: ${e.message}")
             }
         }
