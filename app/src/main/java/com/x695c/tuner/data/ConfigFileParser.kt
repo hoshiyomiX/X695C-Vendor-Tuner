@@ -1,17 +1,22 @@
 package com.x695c.tuner.data
 
+import android.util.Xml
 import org.json.JSONObject
-import org.w3c.dom.Document
-import org.w3c.dom.Element
+import org.xmlpull.v1.XmlPullParser
 import java.io.File
-import javax.xml.parsers.DocumentBuilderFactory
+import java.io.StringReader
 
 /**
  * Parses XML and JSON config files from the vendor partition.
  * Supports parsing of game tuning configs, performance scenarios,
  * and memory management configs.
  *
- * Security: XXE and DTD processing are disabled per OWASP guidelines.
+ * XML parsing uses Android's XmlPullParser (not DocumentBuilderFactory).
+ * Reason: Android's DocumentBuilderFactory silently ignores
+ * disallow-doctype-decl=false and rejects vendor XMLs with DOCTYPE.
+ * XmlPullParser is a streaming parser that skips DTD processing entirely,
+ * making it immune to both XXE attacks and DOCTYPE rejection.
+ *
  * Reference: https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing
  */
 object ConfigFileParser {
@@ -19,35 +24,6 @@ object ConfigFileParser {
     private val gameConfigPaths = VendorPaths.gameConfigPaths
     private val scenarioConfigPaths = VendorPaths.scenarioConfigPaths
     private val memoryConfigPaths = VendorPaths.memoryConfigPaths
-
-    /**
-     * Create a secure DocumentBuilderFactory with XXE protections.
-     * 
-     * Vendor XML files may contain DOCTYPE declarations, so we allow those
-     * but still block all external entity resolution (the real XXE attack vector).
-     * 
-     * Security model:
-     * - DOCTYPE allowed (vendor compatibility)
-     * - External entities BLOCKED (XXE prevention)
-     * - External DTD loading BLOCKED (XXE prevention)
-     * - Entity expansion BLOCKED (billion laughs prevention)
-     * 
-     * Reference: OWASP XXE Prevention Cheat Sheet
-     */
-    private fun createSecureDocumentBuilderFactory(): DocumentBuilderFactory {
-        val factory = DocumentBuilderFactory.newInstance()
-        // Allow DOCTYPE declarations (vendor XMLs use them)
-        // DOCTYPE itself is harmless — external entity resolution is the attack vector
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false)
-        // Disable external entities (primary XXE defense)
-        factory.setFeature("http://xml.org/sax/features/external-general-entities", false)
-        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-        // Disable external DTD loading
-        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-        // Disable entity expansion (billion laughs attack)
-        factory.setExpandEntityReferences(false)
-        return factory
-    }
 
     fun parseGameConfigs(): Map<String, GameTuningConfig> {
         val content = findReadableFile(gameConfigPaths)
@@ -57,15 +33,65 @@ object ConfigFileParser {
         }
         return try {
             val configs = mutableMapOf<String, GameTuningConfig>()
-            val doc = parseXmlDocument(content)
-            val packages = doc.getElementsByTagName("Package")
-            for (i in 0 until packages.length) {
-                val packageElement = packages.item(i) as Element
-                val packageName = packageElement.getAttribute("name")
-                if (packageName.isNotEmpty()) {
-                    val config = parseGamePackageConfig(packageName, packageElement)
-                    configs[packageName] = config
+            val parser = createXmlPullParser(content)
+            var currentPackage: String? = null
+            var currentActivity = false
+            val rawParams = mutableMapOf<String, Int>()
+            var config = GameTuningConfig(packageName = "")
+
+            var eventType = parser.eventType
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                when (eventType) {
+                    XmlPullParser.START_TAG -> when (parser.name) {
+                        "Package" -> {
+                            currentPackage = parser.getAttributeValue(null, "name")
+                            rawParams.clear()
+                            config = GameTuningConfig(packageName = currentPackage ?: "")
+                            currentActivity = false
+                        }
+                        "Activity" -> {
+                            currentActivity = true
+                        }
+                        "data" -> {
+                            val cmd = parser.getAttributeValue(null, "cmd") ?: ""
+                            val param1 = parser.getAttributeValue(null, "param1")?.toIntOrNull() ?: 0
+                            if (currentActivity && cmd.isNotEmpty()) {
+                                rawParams[cmd] = param1
+                                config = when (cmd) {
+                                    "PERF_RES_THERMAL_POLICY" -> config.copy(thermalPolicy = ThermalPolicy.fromValue(param1))
+                                    "PERF_RES_GPU_GED_MARGIN_MODE" -> config.copy(gpuMarginMode = GpuMarginMode.fromValue(param1))
+                                    "PERF_RES_SCHED_UCLAMP_MIN_TA" -> config.copy(uclampMin = UclampMin.fromValue(param1))
+                                    "PERF_RES_SCHED_BOOST" -> config.copy(schedBoost = SchedBoost.fromValue(param1))
+                                    "PERF_RES_FPS_FPSGO_MARGIN_MODE" -> config.copy(fpsMarginMode = FpsMarginMode.fromValue(param1))
+                                    "PERF_RES_FPS_FPSGO_ADJ_LOADING" -> config.copy(fpsAdjustLoading = param1 == 1)
+                                    "PERF_RES_FPS_FPSGO_LLF_TH" -> config.copy(fpsLoadingThreshold = FpsLoadingThreshold.fromValue(param1))
+                                    "PERF_RES_FPS_FPSGO_GPU_BLOCK_BOOST" -> config.copy(gpuBlockBoost = GpuBlockBoost.fromValue(param1))
+                                    // Frame rescue: accept both vendor names (PERF_RES_FBT_*) and legacy names
+                                    "PERF_RES_FPS_FPSGO_FRAME_RESCUE_F", "PERF_RES_FBT_RESCUE_F" -> config.copy(frameRescueF = param1)
+                                    "PERF_RES_FPS_FPSGO_FRAME_RESCUE_PERCENT", "PERF_RES_FBT_RESCUE_PERCENT" -> config.copy(frameRescuePercent = FrameRescuePercent.fromValue(param1))
+                                    "PERF_RES_FPS_FPSGO_ULTRA_RESCUE", "PERF_RES_FBT_ULTRA_RESCUE" -> config.copy(ultraRescue = param1 == 1)
+                                    "PERF_RES_NET_NETD_BOOST_UID" -> config.copy(networkBoost = NetworkBoost.fromValue(param1))
+                                    "PERF_RES_NET_WIFI_LOW_LATENCY" -> config.copy(wifiLowLatency = if (param1 == 1) WifiLowLatency.ENABLED else WifiLowLatency.DISABLED)
+                                    "PERF_RES_NET_MD_WEAK_SIG_OPT" -> config.copy(weakSignalOpt = if (param1 == 1) WeakSignalOpt.ENABLED else WeakSignalOpt.DISABLED)
+                                    // Cold launch: accept both vendor name and legacy name
+                                    "PERF_RES_COLD_LAUNCH_TIME", "PERF_RES_POWERHAL_WHITELIST_APP_LAUNCH_TIME_COLD" -> config.copy(coldLaunchTime = param1)
+                                    "PERF_RES_GPU_GED_TIMER_BASE_DVFS_MARGIN" -> config.copy(gpuTimerDvfsMargin = param1)
+                                    else -> config
+                                }
+                            }
+                        }
+                    }
+                    XmlPullParser.END_TAG -> when (parser.name) {
+                        "Activity" -> currentActivity = false
+                        "Package" -> {
+                            if (currentPackage != null) {
+                                configs[currentPackage] = config.copy(rawParams = rawParams.toMap())
+                            }
+                            currentPackage = null
+                        }
+                    }
                 }
+                eventType = parser.next()
             }
             ActivityLogger.log("ConfigParser", "GAME_CONFIG", "Parsed ${configs.size} game configurations")
             configs
@@ -83,15 +109,47 @@ object ConfigFileParser {
         }
         return try {
             val configs = mutableMapOf<String, PerformanceScenarioConfig>()
-            val doc = parseXmlDocument(content)
-            val scenarios = doc.getElementsByTagName("scenario")
-            for (i in 0 until scenarios.length) {
-                val scenarioElement = scenarios.item(i) as Element
-                val scenarioName = scenarioElement.getAttribute("powerhint")
-                if (scenarioName.isNotEmpty()) {
-                    val config = parseScenarioConfig(scenarioName, scenarioElement)
-                    configs[scenarioName] = config
+            val parser = createXmlPullParser(content)
+            var scenarioName: String? = null
+            val rawParams = mutableMapOf<String, Int>()
+            var config = PerformanceScenarioConfig(scenarioName = "")
+
+            var eventType = parser.eventType
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                when (eventType) {
+                    XmlPullParser.START_TAG -> when (parser.name) {
+                        "scenario" -> {
+                            scenarioName = parser.getAttributeValue(null, "powerhint")
+                            rawParams.clear()
+                            config = PerformanceScenarioConfig(scenarioName = scenarioName ?: "")
+                        }
+                        "data" -> {
+                            val cmd = parser.getAttributeValue(null, "cmd") ?: ""
+                            val param1 = parser.getAttributeValue(null, "param1")?.toLongOrNull() ?: 0L
+                            val param1Int = param1.toInt()
+                            rawParams[cmd] = param1Int
+                            config = when (cmd) {
+                                "PERF_RES_CPUFREQ_MIN_CLUSTER_0" -> config.copy(cpuFreqMinCluster0 = param1)
+                                "PERF_RES_CPUFREQ_MIN_CLUSTER_1" -> config.copy(cpuFreqMinCluster1 = param1)
+                                "PERF_RES_DRAM_OPP_MIN" -> config.copy(dramOpp = DramOpp.fromValue(param1Int))
+                                "PERF_RES_SCHED_UCLAMP_MIN_TA" -> config.copy(uclampMin = UclampMin.fromValue(param1Int))
+                                "PERF_RES_SCHED_BOOST" -> config.copy(schedBoost = SchedBoost.fromValue(param1Int))
+                                "PERF_RES_FPS_FBT_TOUCH_BOOST_OPP" -> config.copy(touchBoostOpp = TouchBoostOpp.fromValue(param1Int))
+                                "PERF_RES_FPS_FBT_TOUCH_BOOST_DURATION" -> config.copy(touchBoostDuration = param1)
+                                "PERF_RES_FPS_FBT_BHR_OPP" -> config.copy(bhrOpp = param1Int)
+                                "PERF_RES_POWER_HINT_HOLD_TIME" -> config.copy(holdTime = param1)
+                                "PERF_RES_POWER_HINT_EXT_HINT" -> config.copy(extHint = param1Int)
+                                "PERF_RES_POWER_HINT_EXT_HINT_HOLD_TIME" -> config.copy(extHintHoldTime = param1)
+                                else -> config
+                            }
+                        }
+                    }
+                    XmlPullParser.END_TAG -> if (parser.name == "scenario" && scenarioName != null) {
+                        configs[scenarioName] = config.copy(rawParams = rawParams.toMap())
+                        scenarioName = null
+                    }
                 }
+                eventType = parser.next()
             }
             ActivityLogger.log("ConfigParser", "SCENARIO_CONFIG", "Parsed ${configs.size} scenario configurations")
             configs
@@ -130,90 +188,16 @@ object ConfigFileParser {
         return null
     }
 
-    private fun parseXmlDocument(content: String): Document {
-        val factory = createSecureDocumentBuilderFactory()
-        val builder = factory.newDocumentBuilder()
-        return builder.parse(content.byteInputStream())
-    }
-
-    private fun parseGamePackageConfig(packageName: String, element: Element): GameTuningConfig {
-        val rawParams = mutableMapOf<String, Int>()
-        var config = GameTuningConfig(packageName = packageName)
-        val activities = element.getElementsByTagName("Activity")
-        for (i in 0 until activities.length) {
-            val activityElement = activities.item(i) as Element
-            config = parseActivityDataElements(activityElement, config, rawParams)
-        }
-        return config.copy(rawParams = rawParams)
-    }
-
     /**
-     * Parse all <data> elements under an <Activity>.
-     * Stores every cmd/param1 pair in rawParams to preserve original values.
-     * Also resolves enum fields for UI display.
+     * Create an XmlPullParser from content string.
+     * Uses FEATURE_PROCESS_NAMESPACES=false for performance
+     * since vendor XMLs don't use namespaces.
      */
-    private fun parseActivityDataElements(activityElement: Element, config: GameTuningConfig, rawParams: MutableMap<String, Int>): GameTuningConfig {
-        var currentConfig = config
-        val dataElements = activityElement.getElementsByTagName("data")
-        for (i in 0 until dataElements.length) {
-            val dataElement = dataElements.item(i) as Element
-            val cmd = dataElement.getAttribute("cmd")
-            val param1 = dataElement.getAttribute("param1").toIntOrNull() ?: 0
-            // FLOW-C001 fix: always store raw value to prevent silent mutation
-            rawParams[cmd] = param1
-            currentConfig = when (cmd) {
-                "PERF_RES_THERMAL_POLICY" -> currentConfig.copy(thermalPolicy = ThermalPolicy.fromValue(param1))
-                "PERF_RES_GPU_GED_MARGIN_MODE" -> currentConfig.copy(gpuMarginMode = GpuMarginMode.fromValue(param1))
-                "PERF_RES_SCHED_UCLAMP_MIN_TA" -> currentConfig.copy(uclampMin = UclampMin.fromValue(param1))
-                "PERF_RES_SCHED_BOOST" -> currentConfig.copy(schedBoost = SchedBoost.fromValue(param1))
-                "PERF_RES_FPS_FPSGO_MARGIN_MODE" -> currentConfig.copy(fpsMarginMode = FpsMarginMode.fromValue(param1))
-                "PERF_RES_FPS_FPSGO_ADJ_LOADING" -> currentConfig.copy(fpsAdjustLoading = param1 == 1)
-                "PERF_RES_FPS_FPSGO_LLF_TH" -> currentConfig.copy(fpsLoadingThreshold = FpsLoadingThreshold.fromValue(param1))
-                "PERF_RES_FPS_FPSGO_GPU_BLOCK_BOOST" -> currentConfig.copy(gpuBlockBoost = GpuBlockBoost.fromValue(param1))
-                // Frame rescue: accept both vendor names (PERF_RES_FBT_*) and legacy names
-                "PERF_RES_FPS_FPSGO_FRAME_RESCUE_F", "PERF_RES_FBT_RESCUE_F" -> currentConfig.copy(frameRescueF = param1)
-                "PERF_RES_FPS_FPSGO_FRAME_RESCUE_PERCENT", "PERF_RES_FBT_RESCUE_PERCENT" -> currentConfig.copy(frameRescuePercent = FrameRescuePercent.fromValue(param1))
-                "PERF_RES_FPS_FPSGO_ULTRA_RESCUE", "PERF_RES_FBT_ULTRA_RESCUE" -> currentConfig.copy(ultraRescue = param1 == 1)
-                "PERF_RES_NET_NETD_BOOST_UID" -> currentConfig.copy(networkBoost = NetworkBoost.fromValue(param1))
-                "PERF_RES_NET_WIFI_LOW_LATENCY" -> currentConfig.copy(wifiLowLatency = if (param1 == 1) WifiLowLatency.ENABLED else WifiLowLatency.DISABLED)
-                "PERF_RES_NET_MD_WEAK_SIG_OPT" -> currentConfig.copy(weakSignalOpt = if (param1 == 1) WeakSignalOpt.ENABLED else WeakSignalOpt.DISABLED)
-                // Cold launch: accept both vendor name and legacy name
-                "PERF_RES_COLD_LAUNCH_TIME", "PERF_RES_POWERHAL_WHITELIST_APP_LAUNCH_TIME_COLD" -> currentConfig.copy(coldLaunchTime = param1)
-                "PERF_RES_GPU_GED_TIMER_BASE_DVFS_MARGIN" -> currentConfig.copy(gpuTimerDvfsMargin = param1)
-                else -> currentConfig
-            }
-        }
-        return currentConfig
-    }
-
-    /** Parse a <scenario> element. Stores all cmd/param1 in rawParams for write integrity. */
-    private fun parseScenarioConfig(scenarioName: String, element: Element): PerformanceScenarioConfig {
-        val rawParams = mutableMapOf<String, Int>()
-        var config = PerformanceScenarioConfig(scenarioName = scenarioName)
-        val dataElements = element.getElementsByTagName("data")
-        for (i in 0 until dataElements.length) {
-            val dataElement = dataElements.item(i) as Element
-            val cmd = dataElement.getAttribute("cmd")
-            val param1 = dataElement.getAttribute("param1").toLongOrNull() ?: 0L
-            val param1Int = param1.toInt()
-            // FLOW-C001 fix: always store raw value
-            rawParams[cmd] = param1Int
-            config = when (cmd) {
-                "PERF_RES_CPUFREQ_MIN_CLUSTER_0" -> config.copy(cpuFreqMinCluster0 = param1)
-                "PERF_RES_CPUFREQ_MIN_CLUSTER_1" -> config.copy(cpuFreqMinCluster1 = param1)
-                "PERF_RES_DRAM_OPP_MIN" -> config.copy(dramOpp = DramOpp.fromValue(param1Int))
-                "PERF_RES_SCHED_UCLAMP_MIN_TA" -> config.copy(uclampMin = UclampMin.fromValue(param1Int))
-                "PERF_RES_SCHED_BOOST" -> config.copy(schedBoost = SchedBoost.fromValue(param1Int))
-                "PERF_RES_FPS_FBT_TOUCH_BOOST_OPP" -> config.copy(touchBoostOpp = TouchBoostOpp.fromValue(param1Int))
-                "PERF_RES_FPS_FBT_TOUCH_BOOST_DURATION" -> config.copy(touchBoostDuration = param1)
-                "PERF_RES_FPS_FBT_BHR_OPP" -> config.copy(bhrOpp = param1Int)
-                "PERF_RES_POWER_HINT_HOLD_TIME" -> config.copy(holdTime = param1)
-                "PERF_RES_POWER_HINT_EXT_HINT" -> config.copy(extHint = param1Int)
-                "PERF_RES_POWER_HINT_EXT_HINT_HOLD_TIME" -> config.copy(extHintHoldTime = param1)
-                else -> config
-            }
-        }
-        return config.copy(rawParams = rawParams)
+    private fun createXmlPullParser(content: String): XmlPullParser {
+        val parser = Xml.newPullParser()
+        parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
+        parser.setInput(StringReader(content))
+        return parser
     }
 
     private fun parseMemoryJsonConfig(json: JSONObject): MemoryManagementConfig {
