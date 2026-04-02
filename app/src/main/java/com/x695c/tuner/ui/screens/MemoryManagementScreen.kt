@@ -18,7 +18,7 @@ import com.x695c.tuner.ui.components.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoryManagementScreen(
-    config: MemoryManagementConfig,
+    config: MemoryManagementConfig? = null,
     configAvailable: Boolean = false,
     onConfigChange: (MemoryManagementConfig) -> Unit,
     onBack: () -> Unit,
@@ -50,6 +50,35 @@ fun MemoryManagementScreen(
             )
         )
 
+        if (config == null) {
+            // No config loaded from device — show empty state
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Memory,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Memory configuration not loaded",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Config file was not detected on device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        } else {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -330,5 +359,6 @@ fun MemoryManagementScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
+        } // else: config != null
+    } // outer Column
 }

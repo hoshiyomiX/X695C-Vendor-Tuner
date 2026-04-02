@@ -20,7 +20,7 @@ fun MainDashboardScreen(
     onProfileChange: (TuningProfile) -> Unit,
     gameConfigs: Map<String, GameTuningConfig>,
     scenarioConfigs: Map<String, PerformanceScenarioConfig>,
-    memoryConfig: MemoryManagementConfig,
+    memoryConfig: MemoryManagementConfig? = null,
     gameConfigAvailable: Boolean = false,
     scenarioConfigAvailable: Boolean = false,
     memoryConfigAvailable: Boolean = false,
